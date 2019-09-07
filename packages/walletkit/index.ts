@@ -96,3 +96,4 @@ export { GoogleStorageUtils }
 export { Logger as WalletKitLogger, LogLevel as WalletKitLogLevel }
 export { StaticNodeUtils }
 export { Web3Utils }
+export { addLocalAccount, generateAccountAddressFromPrivateKey } from './src/new-web3-utils'

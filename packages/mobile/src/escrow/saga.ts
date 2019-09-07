@@ -19,7 +19,7 @@ import {
 } from 'src/escrow/actions'
 import { sentEscrowedPaymentsSelector } from 'src/escrow/reducer'
 import { calculateFee } from 'src/fees/saga'
-import { CURRENCY_ENUM, SHORT_CURRENCIES } from 'src/geth/consts'
+import { CURRENCY_ENUM, isGethFreeMode, SHORT_CURRENCIES } from 'src/geth/consts'
 import i18n from 'src/i18n'
 import { Actions as IdentityActions, EndVerificationAction } from 'src/identity/actions'
 import { NUM_ATTESTATIONS_REQUIRED } from 'src/identity/verification'
@@ -36,7 +36,7 @@ import { TransactionStatus, TransactionTypes } from 'src/transactions/reducer'
 import { sendAndMonitorTransaction } from 'src/transactions/saga'
 import { sendTransaction } from 'src/transactions/send'
 import Logger from 'src/utils/Logger'
-import { web3 } from 'src/web3/contracts'
+import { getWeb3 } from 'src/web3/contracts'
 import { getConnectedAccount, getConnectedUnlockedAccount } from 'src/web3/saga'
 
 const TAG = 'escrow/saga'
@@ -44,6 +44,7 @@ const TAG = 'escrow/saga'
 function* transferStableTokenToEscrow(action: EscrowTransferPaymentAction) {
   Logger.debug(TAG + '@transferToEscrow', 'Begin transfer to escrow')
   try {
+    const web3 = yield getWeb3()
     const { phoneHash, amount, tempWalletAddress } = action
     const escrow: Escrow = yield call(getEscrowContract, web3)
     const stableToken: StableToken = yield call(getStableTokenContract, web3)
@@ -105,6 +106,7 @@ function* withdrawFromEscrow(action: EndVerificationAction) {
   try {
     Logger.debug(TAG + '@withdrawFromEscrow', 'Withdrawing escrowed payment')
 
+    const web3 = yield getWeb3()
     const escrow: Escrow = yield call(getEscrowContract, web3)
     const account: string = yield call(getConnectedUnlockedAccount)
     const inviteCode: string = yield select((state: RootState) => state.invite.redeemedInviteCode)
@@ -125,8 +127,12 @@ function* withdrawFromEscrow(action: EndVerificationAction) {
       return
     }
 
-    // Unlock temporary account
-    yield call(web3.eth.personal.unlockAccount, tempWalletAddress, TEMP_PW, 600)
+    if (isGethFreeMode()) {
+      Logger.info('Geth free mode is on, no need to unlock the temporary account')
+    } else {
+      // Unlock temporary account
+      yield call(web3.eth.personal.unlockAccount, tempWalletAddress, TEMP_PW, 600)
+    }
 
     const msgHash = web3.utils.soliditySha3({ type: 'address', value: account })
 
@@ -155,6 +161,7 @@ function* withdrawFromEscrow(action: EndVerificationAction) {
 }
 
 async function createReclaimTransaction(paymentID: string) {
+  const web3 = await getWeb3()
   const escrow = await getEscrowContract(web3)
   return escrow.methods.revoke(paymentID)
 }
@@ -162,6 +169,7 @@ async function createReclaimTransaction(paymentID: string) {
 export async function getReclaimEscrowGas(account: string, paymentID: string) {
   Logger.debug(`${TAG}/getReclaimEscrowGas`, 'Getting gas estimate for escrow reclaim tx')
   const tx = await createReclaimTransaction(paymentID)
+  const web3 = await getWeb3()
   const txParams = {
     from: account,
     gasCurrency: (await getStableTokenContract(web3))._address,
@@ -218,6 +226,7 @@ function* doFetchSentPayments({ forceRefresh }: EscrowFetchSentPaymentsAction) {
   Logger.debug(TAG + '@doFetchSentPayments', 'Fetching valid sent escrowed payments')
 
   try {
+    const web3 = yield getWeb3()
     const escrow: Escrow = yield call(getEscrowContract, web3)
     const account: string = yield call(getConnectedAccount)
     const existingPayments: EscrowedPayment[] = yield select(sentEscrowedPaymentsSelector)

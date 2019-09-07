@@ -1,12 +1,16 @@
 import BigNumber from 'bignumber.js'
 import { values } from 'lodash'
+import sleep from 'sleep-promise'
+import * as util from 'util'
 import Web3 from 'web3'
 import Contract from 'web3/eth/contract'
 import { TransactionObject } from 'web3/eth/types'
 import { TransactionReceipt } from 'web3/types'
 import * as ContractList from '../contracts/index'
+import { GasPriceMinimum as GasPriceMinimumType } from '../types/GasPriceMinimum'
 import { GoldToken } from '../types/GoldToken'
 import { StableToken } from '../types/StableToken'
+import { getGasPriceMinimumContract } from './contracts'
 import { Logger } from './logger'
 
 const gasInflateFactor = 1.3
@@ -23,6 +27,11 @@ export function selectContractByAddress(contracts: Contract[], address: string) 
 /**
  * Util function to send a transaction and log it's progression
  * Throws error on tx failure
+ *
+ * TODO(ashishb): This function won't work with locally signed transactions.
+ * I am not fixing it since we are going to move to contractkit soon and
+ * for now, mobile app only uses sendTransactionAsync function which works
+ * with locally signed transactions.
  */
 // tslint:disable:ban-types
 export async function sendTransaction(
@@ -204,6 +213,20 @@ function Exception(error: Error): Exception {
   return { type: SendTransactionLogEventType.Exception, error }
 }
 
+async function getGasPrice(
+  web3: Web3,
+  gasCurrency: string | undefined
+): Promise<string | undefined> {
+  // Gold Token
+  if (gasCurrency === undefined) {
+    return String(await web3.eth.getGasPrice())
+  }
+  const gasPriceMinimum: GasPriceMinimumType = await getGasPriceMinimumContract(web3)
+  const gasPrice: string = await gasPriceMinimum.methods.getGasPriceMinimum(gasCurrency).call()
+  console.info(`Gas price is ${gasPrice}`)
+  return String(parseInt(gasPrice, 10) * 10)
+}
+
 //
 /**
  * sendTransactionAsync mainly abstracts the sending of a transaction in a promise like
@@ -218,6 +241,7 @@ function Exception(error: Error): Exception {
  *               a transaction ID
  */
 export async function sendTransactionAsync<T>(
+  web3: Web3,
   tx: TransactionObject<T>,
   account: string,
   gasCurrencyContract: StableToken | GoldToken,
@@ -263,15 +287,51 @@ export async function sendTransactionAsync<T>(
       estimatedGas = Math.round((await tx.estimateGas(txParams)) * gasInflateFactor)
       logger(EstimatedGas(estimatedGas))
     }
+    // Ideally, we should fill these fields in CeloProvider but as of now,
+    // we don't have access to web3 inside it, so, in the short-term
+    // fill the fields here.
+    const gasCurrency = gasCurrencyContract._address
+    const gasFeeRecipient = await web3.eth.getCoinbase()
+    const gasPrice = await getGasPrice(web3, gasCurrency)
+    Logger.debug('contract-utils@sendTransactionAsync', `Gas fee recipient is ${gasFeeRecipient}`)
+
+    let recievedTxHash: string | null = null
+    let alreadyInformedResolversAboutConfirmation = false
+    const informAboutConfirmation = () => {
+      // Don't inform more than once.
+      if (alreadyInformedResolversAboutConfirmation) {
+        Logger.debug(
+          'contract-utils@sendTransactionAsync',
+          `Already Informed Resolvers About Confirmation`
+        )
+        return
+      }
+      alreadyInformedResolversAboutConfirmation = true
+      logger(Confirmed)
+      if (resolvers.confirmation) {
+        resolvers.confirmation(true)
+      } else {
+        Logger.debug('contract-utils@sendTransactionAsync', 'resolver.confirmation is null')
+      }
+    }
+
+    const nonce: number = await web3.eth.getTransactionCount(account)
+    Logger.debug('contract-utils@sendTransactionAsync', `sendTransactionAsync@nonce is ${nonce}`)
+    Logger.debug(
+      'contract-utils@sendTransactionAsync',
+      `sendTransactionAsync@sending from ${account}`
+    )
 
     tx.send({
       from: account,
+      nonce,
       // @ts-ignore
       gasCurrency: gasCurrencyContract._address,
       gas: estimatedGas,
       // Hack to prevent web3 from adding the suggested gold gas price, allowing geth to add
       // the suggested price in the selected gasCurrency.
-      gasPrice: '0',
+      gasPrice,
+      gasFeeRecipient,
     })
       .on('receipt', (r: TransactionReceipt) => {
         logger(ReceiptReceived(r))
@@ -280,6 +340,7 @@ export async function sendTransactionAsync<T>(
         }
       })
       .on('transactionHash', (txHash: string) => {
+        recievedTxHash = txHash
         logger(TransactionHashReceived(txHash))
 
         if (resolvers.transactionHash) {
@@ -288,20 +349,44 @@ export async function sendTransactionAsync<T>(
       })
       .on('confirmation', (confirmationNumber: number) => {
         if (confirmationNumber > 1) {
+          console.debug(`Confirmation number is ${confirmationNumber} > 1, ignored...`)
           // "confirmation" event is called for 24 blocks.
           // if check to avoid polluting the logs and trying to remove the standby notification more than once
           return
         }
-        logger(Confirmed)
-
-        if (resolvers.confirmation) {
-          resolvers.confirmation(true)
-        }
+        informAboutConfirmation()
       })
       .on('error', (error: Error) => {
+        Logger.info(
+          'contract-utils@sendTransactionAsync',
+          `Txn failed: txn ${util.inspect(error)} `
+        )
         logger(Failed(error))
         rejectAll(error)
       })
+
+    // This code is required for infura-like setup.
+    // When mobile client directly connects to the remote full node then
+    // it gets `receipt` but not other notifications.
+    let sleepTimeInSecs = 1
+    for (let i = 0; i < 10; i++) {
+      await sleep(sleepTimeInSecs * 1000)
+      // Exponential backoff
+      sleepTimeInSecs *= 2
+      if (recievedTxHash === null) {
+        continue
+      }
+      const txReceipt = await web3.eth.getTransactionReceipt(recievedTxHash)
+      if (txReceipt === null) {
+        continue
+      }
+      const txStatus = txReceipt.status
+      console.info(`Transaction status of hash ${recievedTxHash}: ${txStatus}`)
+      if (txStatus === true) {
+        informAboutConfirmation()
+        break
+      }
+    }
   } catch (error) {
     logger(Exception(error))
     rejectAll(error)

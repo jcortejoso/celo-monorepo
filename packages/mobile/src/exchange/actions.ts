@@ -25,7 +25,7 @@ import { sendTransaction } from 'src/transactions/send'
 import { getRateForMakerToken, getTakerAmount } from 'src/utils/currencyExchange'
 import { roundDown } from 'src/utils/formatting'
 import Logger from 'src/utils/Logger'
-import { web3 } from 'src/web3/contracts'
+import { getWeb3 } from 'src/web3/contracts'
 import { getConnectedAccount, getConnectedUnlockedAccount } from 'src/web3/saga'
 
 const TAG = 'exchange/actions'
@@ -97,6 +97,7 @@ export function* doFetchExchangeRate(makerAmount?: BigNumber, makerToken?: CURRE
   try {
     yield call(getConnectedAccount)
 
+    const web3 = yield getWeb3()
     const dollarMakerExchangeRate: BigNumber = yield call(
       ContractUtils.getExchangeRate,
       web3,
@@ -156,6 +157,7 @@ export function* exchangeGoldAndStableTokens(action: ExchangeTokensAction) {
 
     txId = yield createStandbyTx(makerToken, makerAmount, exchangeRate, account)
 
+    const web3 = yield getWeb3()
     const goldTokenContract: GoldTokenType = yield call(getGoldTokenContract, web3)
     const stableTokenContract: StableTokenType = yield call(getStableTokenContract, web3)
     const exchangeContract: ExchangeType = yield call(getExchangeContract, web3)

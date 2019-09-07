@@ -13,7 +13,7 @@ import { waitForUserVerified } from 'src/identity/verification'
 import { setRecipientCache } from 'src/recipients/actions'
 import { contactsToRecipients } from 'src/recipients/recipient'
 import { getAllContacts } from 'src/utils/contacts'
-import { web3 } from 'src/web3/contracts'
+import { getWeb3 } from 'src/web3/contracts'
 import { getConnectedAccount } from 'src/web3/saga'
 import { createMockContract } from 'test/utils'
 import {
@@ -36,6 +36,7 @@ const allRecipients = { ...e164NumberRecipients, ...otherRecipients }
 describe('Import Contacts Saga', () => {
   it('imports contacts and creates contact mappings correctly', async () => {
     const attestationsContract = createMockContract(attestationsStub)
+    const web3 = await getWeb3()
     await expectSaga(doImportContacts)
       .provide([
         [call(getConnectedAccount), null],
@@ -71,6 +72,7 @@ describe('Import Contacts Saga', () => {
   })
 
   it('shows errors correctly', async () => {
+    const web3 = await getWeb3()
     await expectSaga(doImportContacts)
       .provide([
         [call(getConnectedAccount), null],

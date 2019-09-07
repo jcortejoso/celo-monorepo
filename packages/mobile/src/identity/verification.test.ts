@@ -19,7 +19,7 @@ import {
   startVerification,
   VERIFICATION_TIMEOUT,
 } from 'src/identity/verification'
-import { web3 } from 'src/web3/contracts'
+import { getWeb3 } from 'src/web3/contracts'
 import { getConnectedAccount, getConnectedUnlockedAccount } from 'src/web3/saga'
 import { privateCommentKeySelector } from 'src/web3/selectors'
 import { createMockContract, sleep } from 'test/utils'
@@ -143,6 +143,7 @@ describe('Start Verification Saga', () => {
 describe('Do Verification Saga', () => {
   it('succeeds for unverified users', async () => {
     const attestationContract = createMockContract(stubUserUnverified)
+    const web3 = await getWeb3()
     await expectSaga(doVerificationFlow)
       .provide([
         [call(getConnectedUnlockedAccount), mockAccount],
@@ -165,6 +166,7 @@ describe('Do Verification Saga', () => {
 
   it('succeeds for partly verified users', async () => {
     const attestationContract = createMockContract(stubUserPartlyVerified)
+    const web3 = await getWeb3()
     await expectSaga(doVerificationFlow)
       .provide([
         [call(getConnectedUnlockedAccount), mockAccount],
@@ -183,6 +185,7 @@ describe('Do Verification Saga', () => {
 
   it('succeeds for verified users', async () => {
     const attestationContract = createMockContract(stubUserVerified)
+    const web3 = await getWeb3()
     await expectSaga(doVerificationFlow)
       .provide([
         [call(getConnectedUnlockedAccount), mockAccount],
@@ -199,6 +202,7 @@ describe('Do Verification Saga', () => {
 
   it('shows errors on failure', async () => {
     const attestationContract = createMockContract(stubUserUnverified)
+    const web3 = await getWeb3()
     await expectSaga(doVerificationFlow)
       .provide([
         [call(getConnectedUnlockedAccount), mockAccount],

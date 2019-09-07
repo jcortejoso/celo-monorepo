@@ -3,9 +3,10 @@ import {
   stripHexLeader,
 } from '@celo/utils/src/commentEncryption'
 import { getAttestationsContract, getDataEncryptionKey } from '@celo/walletkit'
-import { web3 } from 'src/web3/contracts'
+import { getWeb3 } from 'src/web3/contracts'
 
 export async function getCommentKey(address: string): Promise<Buffer | null> {
+  const web3 = await getWeb3()
   const attestations = await getAttestationsContract(web3)
   const hexString = await getDataEncryptionKey(attestations, address)
   // No comment key -> empty string returned from getDEK. This is expected for old addresses created before comment encryption change

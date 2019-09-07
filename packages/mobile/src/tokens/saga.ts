@@ -10,7 +10,7 @@ import { addStandbyTransaction, removeStandbyTransaction } from 'src/transaction
 import { TransactionStatus, TransactionTypes } from 'src/transactions/reducer'
 import { sendAndMonitorTransaction } from 'src/transactions/saga'
 import Logger from 'src/utils/Logger'
-import { web3 } from 'src/web3/contracts'
+import { getWeb3 } from 'src/web3/contracts'
 import { getConnectedAccount, getConnectedUnlockedAccount } from 'src/web3/saga'
 import * as utf8 from 'utf8'
 
@@ -30,6 +30,7 @@ export const tokenFetchFactory = ({
   function* tokenFetch() {
     try {
       Logger.debug(tag, 'Fetching balance')
+      const web3 = yield getWeb3()
       const account = yield call(getConnectedAccount)
       const tokenContract = yield call(contractGetter, web3)
       const balance = yield call(getErc20Balance, tokenContract, account, web3)
@@ -75,6 +76,7 @@ export const createTransaction = async (
 ) => {
   const { recipientAddress, amount, comment } = transferAction
 
+  const web3 = await getWeb3()
   // TODO(cmcewen): Use proper typing when there is a common interface
   const tokenContract = await contractGetter(web3) // TODO(martinvol) add types specially here
   const decimals: string = await tokenContract.methods.decimals().call()

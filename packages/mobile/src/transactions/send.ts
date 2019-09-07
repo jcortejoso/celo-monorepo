@@ -8,7 +8,7 @@ import {
 import CeloAnalytics from 'src/analytics/CeloAnalytics'
 import { CustomEventNames } from 'src/analytics/constants'
 import Logger from 'src/utils/Logger'
-import { web3 } from 'src/web3/contracts'
+import { getWeb3 } from 'src/web3/contracts'
 import { TransactionObject } from 'web3/eth/types'
 
 // As per https://www.typescriptlang.org/docs/handbook/advanced-types.html#exhaustiveness-checking
@@ -61,8 +61,9 @@ export const sendTransactionPromises = async (
   txId: string,
   staticGas?: number | undefined
 ) => {
+  const web3 = await getWeb3()
   const stableToken = await getStableTokenContract(web3)
-  return sendTransactionAsync(tx, account, stableToken, getLogger(tag, txId), staticGas)
+  return sendTransactionAsync(web3, tx, account, stableToken, getLogger(tag, txId), staticGas)
 }
 
 // Send a transaction and await for its confirmation

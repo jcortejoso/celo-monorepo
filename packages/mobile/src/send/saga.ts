@@ -27,7 +27,7 @@ import { transferStableToken } from 'src/stableToken/actions'
 import { BasicTokenTransfer, createTransaction } from 'src/tokens/saga'
 import { generateStandbyTransactionId } from 'src/transactions/actions'
 import Logger from 'src/utils/Logger'
-import { web3 } from 'src/web3/contracts'
+import { getWeb3 } from 'src/web3/contracts'
 import { currentAccountSelector } from 'src/web3/selectors'
 
 const TAG = 'send/saga'
@@ -38,6 +38,7 @@ export async function getSendTxGas(
   params: BasicTokenTransfer
 ) {
   Logger.debug(`${TAG}/getSendTxGas`, 'Getting gas estimate for send tx')
+  const web3 = await getWeb3()
   const tx = await createTransaction(contractGetter, params)
   const tokenContract = await contractGetter(web3)
   const txParams = { from: account, gasCurrency: tokenContract._address }

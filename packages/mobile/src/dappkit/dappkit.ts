@@ -13,7 +13,7 @@ import { e164NumberSelector } from 'src/account/reducer'
 import { navigate } from 'src/navigator/NavigationService'
 import { Screens } from 'src/navigator/Screens'
 import Logger from 'src/utils/Logger'
-import { web3 } from 'src/web3/contracts'
+import { getWeb3 } from 'src/web3/contracts'
 import { getConnectedUnlockedAccount } from 'src/web3/saga'
 import { currentAccountSelector } from 'src/web3/selectors'
 
@@ -60,6 +60,7 @@ function* produceTxSignature(action: RequestTxSignatureAction) {
   yield call(getConnectedUnlockedAccount)
   const rawTxs = yield Promise.all(
     action.request.txs.map(async (tx) => {
+      const web3 = await getWeb3()
       const params: any = {
         from: tx.from,
         gasPrice: '0',

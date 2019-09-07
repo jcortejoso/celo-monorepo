@@ -24,7 +24,7 @@ import { contactsToRecipients, NumberToRecipient } from 'src/recipients/recipien
 import { checkContactsPermission } from 'src/utils/androidPermissions'
 import { getAllContacts } from 'src/utils/contacts'
 import Logger from 'src/utils/Logger'
-import { web3 } from 'src/web3/contracts'
+import { getWeb3 } from 'src/web3/contracts'
 import { getConnectedAccount } from 'src/web3/saga'
 
 const TAG = 'identity/contactMapping'
@@ -119,6 +119,7 @@ function* lookupNewRecipients(
   }
   Logger.debug(TAG, `Total new recipients found: ${newE164Numbers.length}`)
 
+  const web3 = yield getWeb3()
   const attestationsContract: AttestationsType = yield call(getAttestationsContract, web3)
 
   // If chunk sizes are too large, or number of parallel lookups too high
@@ -222,6 +223,7 @@ export function* fetchPhoneAddresses(action: FetchPhoneAddressesAction) {
   const e164NumberToAddressUpdates: any = {}
   e164Numbers.map((n) => (e164NumberToAddressUpdates[n] = undefined))
   yield put(updateE164PhoneNumberAddresses(e164NumberToAddressUpdates, {}))
+  const web3 = yield getWeb3()
   const attestationsContract: AttestationsType = yield call(getAttestationsContract, web3)
   yield call(fetchAndStoreAddressMappings, attestationsContract, e164Numbers)
 }

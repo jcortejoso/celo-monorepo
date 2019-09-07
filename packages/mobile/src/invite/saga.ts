@@ -18,7 +18,7 @@ import { CustomEventNames } from 'src/analytics/constants'
 import { ErrorMessages } from 'src/app/ErrorMessages'
 import { transferEscrowedPayment } from 'src/escrow/actions'
 import { calculateFee } from 'src/fees/saga'
-import { CURRENCY_ENUM } from 'src/geth/consts'
+import { CURRENCY_ENUM, isGethFreeMode } from 'src/geth/consts'
 import i18n from 'src/i18n'
 import {
   Actions,
@@ -43,9 +43,10 @@ import { waitForTransactionWithId } from 'src/transactions/saga'
 import { sendTransaction } from 'src/transactions/send'
 import { dynamicLink } from 'src/utils/dynamicLink'
 import Logger from 'src/utils/Logger'
-import { web3 } from 'src/web3/contracts'
+import { addLocalAccount, getWeb3 } from 'src/web3/contracts'
 import { createNewAccount, getConnectedUnlockedAccount } from 'src/web3/saga'
 import { currentAccountSelector } from 'src/web3/selectors'
+import Web3 from 'web3'
 
 const TAG = 'invite/saga'
 export const TEMP_PW = 'ce10'
@@ -58,6 +59,7 @@ export async function getInviteTxGas(
   amount: string,
   comment: string
 ) {
+  const web3 = await getWeb3()
   const escrowContract = await getEscrowContract(web3)
   return getSendTxGas(account, contractGetter, {
     amount,
@@ -81,7 +83,7 @@ export function getInvitationVerificationFeeInDollars() {
 }
 
 export function getInvitationVerificationFeeInWei() {
-  return new BigNumber(web3.utils.toWei(INVITE_FEE))
+  return new BigNumber(Web3.utils.toWei(INVITE_FEE))
 }
 
 export async function generateLink(inviteCode: string, recipientName: string) {
@@ -124,6 +126,7 @@ export function* sendInvite(
 ) {
   yield call(getConnectedUnlockedAccount)
   try {
+    const web3 = yield getWeb3()
     const temporaryWalletAccount = web3.eth.accounts.create()
     const temporaryAddress = temporaryWalletAccount.address
     const inviteCode = createInviteCode(temporaryWalletAccount.privateKey)
@@ -197,7 +200,10 @@ export function* sendInviteSaga(action: SendInviteAction) {
 
 function* redeemSuccess(name: string, account: string) {
   Logger.showMessage(i18n.t('inviteFlow11:redeemSuccess'))
-  web3.eth.defaultAccount = account
+  if (!isGethFreeMode()) {
+    const web3 = yield getWeb3()
+    web3.eth.defaultAccount = account
+  }
   // TODO(Rossy) Decouple setting of name from redeem complete, they are on diff screens now
   yield put(setName(name))
   yield put(redeemComplete(true))
@@ -222,19 +228,42 @@ export function* redeemInviteSaga(action: RedeemInviteAction) {
     Logger.debug(TAG, 'Redeem Invite timed out')
     yield put(showError(ErrorMessages.REDEEM_INVITE_TIMEOUT))
   }
-  Logger.debug(TAG, 'Done Redeem invite')
 }
 
 export function* doRedeemInvite(action: RedeemInviteAction) {
   const { inviteCode, name } = action
 
   yield call(waitWeb3LastBlock)
+  const web3 = yield getWeb3()
   try {
     // Add temp wallet so we can send money from it
     let tempAccount
     try {
-      // @ts-ignore
-      tempAccount = yield call(web3.eth.personal.importRawKey, String(inviteCode).slice(2), TEMP_PW)
+      if (isGethFreeMode()) {
+        tempAccount = web3.eth.accounts.privateKeyToAccount(inviteCode).address
+        Logger.debug(TAG + '@redeemInviteCode', 'Geth free mode', tempAccount)
+        Logger.debug(
+          TAG + '@redeemInviteCode',
+          'web3 is connected:',
+          yield web3.eth.net.isListening()
+        )
+        Logger.debug(TAG + '@redeemInviteCode', 'Added temp account to wallet', tempAccount)
+        const tempAccountBalance: string = yield web3.eth.getBalance(tempAccount)
+        Logger.debug(TAG + `Balance of temp account is ${tempAccountBalance}`)
+        if (new BigNumber(tempAccountBalance).comparedTo(0) === 0) {
+          throw new Error(`Temp Account has zero balance: ${tempAccount}`)
+        }
+
+        Logger.debug(TAG, 'Initializing web3 with the new raw key')
+        yield addLocalAccount(web3, inviteCode)
+      } else {
+        tempAccount = yield call(
+          // @ts-ignore
+          web3.eth.personal.importRawKey,
+          String(inviteCode).slice(2),
+          TEMP_PW
+        )
+      }
     } catch (e) {
       if (e.toString().includes('account already exists')) {
         tempAccount = web3.eth.accounts.privateKeyToAccount(inviteCode).address
@@ -242,7 +271,6 @@ export function* doRedeemInvite(action: RedeemInviteAction) {
         throw e
       }
     }
-    Logger.debug(TAG + '@redeemInviteCode', 'Added temp account to wallet', tempAccount)
 
     // Check that the balance of the new account is not 0
     const StableToken = yield call(getStableTokenContract, web3)
@@ -252,7 +280,7 @@ export function* doRedeemInvite(action: RedeemInviteAction) {
       yield call(retryAsync, StableToken.methods.balanceOf(tempAccount).call, 2, [])
     )
 
-    Logger.debug(TAG + '@redeemInviteCode', 'Temporary account balance: ' + stableBalance)
+    Logger.debug(TAG + '@redeemInviteCode', 'Temporary account Celo USD balance: ' + stableBalance)
 
     if (stableBalance.isLessThan(1)) {
       // check if new user account has already been created
@@ -262,7 +290,10 @@ export function* doRedeemInvite(action: RedeemInviteAction) {
         const accountBalance = new BigNumber(
           yield call(StableToken.methods.balanceOf(account).call)
         )
-        Logger.debug(TAG + '@redeemInviteCode', 'Existing account balance: ' + accountBalance)
+        Logger.debug(
+          TAG + '@redeemInviteCode',
+          'Existing account Celo USD balance: ' + accountBalance
+        )
         if (accountBalance.isGreaterThan(0)) {
           yield redeemSuccess(name, account)
           return
@@ -278,10 +309,16 @@ export function* doRedeemInvite(action: RedeemInviteAction) {
     if (!newAccount) {
       throw Error('Unable to create your account')
     }
+    Logger.debug(TAG + '@redeemInviteCode', `Created new account ${newAccount}`)
 
-    Logger.debug(TAG + '@redeemInviteCode', 'Trying to transfer to new account ' + newAccount)
-    // Unlock temporary account
-    yield call(web3.eth.personal.unlockAccount, tempAccount, TEMP_PW, 600)
+    Logger.debug(
+      TAG + '@redeemInviteCode',
+      `Trying to transfer from ${tempAccount} to new account ${newAccount}`
+    )
+    if (!isGethFreeMode()) {
+      // Unlock temporary account
+      yield call(web3.eth.personal.unlockAccount, tempAccount, TEMP_PW, 600)
+    }
 
     // TODO(cmcewen): calculate the proper amount when gas estimation is working
     const stableBalanceConverted = yield parseFromContractDecimals(stableBalance, StableToken)
@@ -299,7 +336,7 @@ export function* doRedeemInvite(action: RedeemInviteAction) {
     const newAccountBalance = new BigNumber(
       yield call(StableToken.methods.balanceOf(newAccount).call)
     )
-    Logger.debug(TAG + '@redeemInviteCode', 'New account balance: ' + newAccountBalance)
+    Logger.debug(TAG + '@redeemInviteCode', 'New account Celo USD balance: ' + newAccountBalance)
     if (newAccountBalance.isLessThan(1)) {
       throw Error('Transfer to new local account was not successful')
     }

@@ -1,4 +1,4 @@
-import Config from 'react-native-config'
+// import Config from 'react-native-config'
 
 export enum Testnets {
   integration = 'integration',
@@ -8,4 +8,5 @@ export enum Testnets {
   pilotstaging = 'pilotstaging',
 }
 
-export const DEFAULT_TESTNET: Testnets = Config.DEFAULT_TESTNET
+// TODO(ashishb): testing only
+export const DEFAULT_TESTNET: Testnets = Testnets.integration // Config.DEFAULT_TESTNET

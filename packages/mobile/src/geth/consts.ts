@@ -15,3 +15,10 @@ export {
   resolveCurrency,
   SHORT_CURRENCIES,
 } from '@celo/utils/src/currencies'
+
+// Set this to true to skip local geth node and connect to the running geth nodes directly.
+const GETH_FREE_MODE = true
+
+export function isGethFreeMode(): boolean {
+  return GETH_FREE_MODE
+}

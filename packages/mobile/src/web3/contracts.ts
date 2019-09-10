@@ -11,8 +11,7 @@ import { Provider } from 'web3/providers'
 // Logging tag
 const tag = 'web3/contracts'
 
-const getWeb3IpcProvider = (testnet: Testnets) => {
-const getIpcProvider = (testnet: Testnets) => {
+function getIpcProvider(testnet: Testnets) {
   Logger.debug(tag, 'creating IPCProvider...')
 
   const ipcProvider = new Web3.providers.IpcProvider(

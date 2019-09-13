@@ -37,9 +37,7 @@ export class CeloProvider extends PrivateKeyWalletSubprovider {
     // Prefix 0x here or else the signed transaction produces dramatically different signer!!!
     this._celoPrivateKey = '0x' + CeloProvider.getPrivateKeyWithout0xPrefix(privateKey)
     this.accountAddress = generateAccountAddressFromPrivateKey(this._celoPrivateKey).toLowerCase()
-    console.debug(
-      `CeloProvider Private key: ${this._celoPrivateKey} Account address: ${this.accountAddress}`
-    )
+    Logger.debug('CeloProvider@construct', `CeloProvider Account address: ${this.accountAddress}`)
   }
 
   public getAccounts(): string[] {

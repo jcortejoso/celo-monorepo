@@ -47,6 +47,7 @@ import Logger from 'src/utils/Logger'
 import { getWeb3 } from 'src/web3/contracts'
 import { getConnectedAccount, getConnectedUnlockedAccount } from 'src/web3/saga'
 import { privateCommentKeySelector } from 'src/web3/selectors'
+import sleep from 'sleep-promise'
 
 const TAG = 'identity/verification'
 
@@ -400,14 +401,15 @@ function* revealNeededAttestations(
 ) {
   Logger.debug(TAG + '@revealNeededAttestations', `Revealing ${attestations.length} attestations`)
   yield all(
-    attestations.map((attestation) => {
+    attestations.map((attestation, index) => {
       return call(
         revealAndCompleteAttestation,
         attestationsContract,
         account,
         e164Number,
         e164NumberHash,
-        attestation.issuer
+        attestation.issuer,
+        index
       )
     })
   )
@@ -418,11 +420,15 @@ function* revealAndCompleteAttestation(
   account: string,
   e164Number: string,
   e164NumberHash: string,
-  issuer: string
+  issuer: string,
+  index: number
 ) {
   Logger.debug(TAG + '@revealAttestation', `Revealing an attestation for issuer: ${issuer}`)
   CeloAnalytics.track(CustomEventNames.verification_reveal_attestation, { issuer })
   const revealTx = yield call(makeRevealTx, attestationsContract, e164Number, issuer)
+  // Crude way to prevent sendTransaction being called in parallel and use the same nonces.
+  const waitBeforeSendTransactionInMs: number = index * 1000
+  yield sleep(waitBeforeSendTransactionInMs)
   yield call(sendTransaction, revealTx, account, TAG, `Reveal ${issuer}`)
 
   CeloAnalytics.track(CustomEventNames.verification_revealed_attestation, { issuer })

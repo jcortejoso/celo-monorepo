@@ -1,4 +1,4 @@
-import { addLocalAccount as web3utilsAddLocalAccount, StaticNodeUtils } from '@celo/walletkit'
+import { addLocalAccount as web3utilsAddLocalAccount } from '@celo/walletkit'
 import { Platform } from 'react-native'
 import { DocumentDirectoryPath } from 'react-native-fs'
 import * as net from 'react-native-tcp'
@@ -62,15 +62,15 @@ function getWeb3HttpProviderForIos(): Provider {
 }
 
 const getWebSocketProvider = (url: string) => {
-  Logger.debug(tag, 'creating WebsocketProvider...')
-  const wsProvider = new Web3.providers.WebsocketProvider(url)
-  Logger.debug(tag, 'created WebsocketProvider')
+  Logger.debug(tag, 'creating HttpProvider...')
+  const provider = new Web3.providers.HttpProvider(url)
+  Logger.debug(tag, 'created HttpProvider')
 
   // In the future, we might decide to over-ride the error handler via the following code.
-  // wsProvider.on('error', () => {
+  // provider.on('error', () => {
   //   Logger.showError('Error occurred')
   // })
-  return wsProvider
+  return provider
 }
 
 let web3: Web3
@@ -81,20 +81,14 @@ export async function getWeb3() {
     if (Platform.OS === 'ios') {
       web3 = new Web3(getWeb3HttpProviderForIos())
     } else if (isGethFreeMode()) {  // Android + Geth free mode
-      Logger.debug('contracts@getWeb3', `Default testnet is ${DEFAULT_TESTNET}`)
-      const statipNodeIps: string = await StaticNodeUtils.getStaticNodesAsync(DEFAULT_TESTNET)
-      Logger.debug('contracts@getWeb3', `Static node IPs are ${statipNodeIps}`)
-      const enodeWithIp: string = JSON.parse(statipNodeIps)[0]
-      // Extract IP from "enode://<enode>@<IP>:<port>"
-      const staticNodeIp: string = enodeWithIp.split('@')[1].split(':')[0]
-      Logger.debug('contracts@getWeb3', `Static node IP is ${staticNodeIp}`)
-      if (staticNodeIp === undefined) {
-        throw new Error('Static node IP is undefined')
-      }
-      if (staticNodeIp === null) {
-        throw new Error('Static node IP is null')
-      }
-      const provider = getWebSocketProvider(`ws://${staticNodeIp}:8546`)
+    if (isGethFreeMode()) {
+      // Warning: This hostname is not yet enabled for all the networks.
+      // It is only enabled for "integration" and "alfajores" networks as of now.
+      // It is being enabled here for all the networks
+      // https://github.com/celo-org/celo-monorepo/pull/1034/
+      const url = `https://${DEFAULT_TESTNET}-infura.celo-testnet.org/`
+      Logger.debug('contracts@getWeb3', `Connecting to url ${url}`)
+      const provider = getWebSocketProvider(url)
       web3 = new Web3(provider)
     } else {  // Android + local geth
       const provider = getIpcProvider(DEFAULT_TESTNET)

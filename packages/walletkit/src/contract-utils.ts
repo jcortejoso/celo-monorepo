@@ -11,8 +11,10 @@ import { GasPriceMinimum as GasPriceMinimumType } from '../types/GasPriceMinimum
 import { GoldToken } from '../types/GoldToken'
 import { StableToken } from '../types/StableToken'
 import { getGasPriceMinimumContract } from './contracts'
-import { Logger } from './logger'
+import { getGoldTokenAddress } from './erc20-utils'
+import { Logger, LogLevel } from './logger'
 
+Logger.setLogLevel(LogLevel.DEBUG)
 const gasInflateFactor = 1.3
 
 export function selectContractByAddress(contracts: Contract[], address: string) {
@@ -223,7 +225,7 @@ async function getGasPrice(
   }
   const gasPriceMinimum: GasPriceMinimumType = await getGasPriceMinimumContract(web3)
   const gasPrice: string = await gasPriceMinimum.methods.getGasPriceMinimum(gasCurrency).call()
-  console.info(`Gas price is ${gasPrice}`)
+  Logger.debug('contract-utils@getGasPrice',`Gas price is ${gasPrice}`)
   return String(parseInt(gasPrice, 10) * 10)
 }
 
@@ -290,10 +292,14 @@ export async function sendTransactionAsync<T>(
     // Ideally, we should fill these fields in CeloProvider but as of now,
     // we don't have access to web3 inside it, so, in the short-term
     // fill the fields here.
-    const gasCurrency = gasCurrencyContract._address
+    let gasCurrency = gasCurrencyContract._address
     const gasFeeRecipient = await web3.eth.getCoinbase()
-    const gasPrice = await getGasPrice(web3, gasCurrency)
     Logger.debug('contract-utils@sendTransactionAsync', `Gas fee recipient is ${gasFeeRecipient}`)
+    const gasPrice = await getGasPrice(web3, gasCurrency)
+    if (gasCurrency === undefined) {
+      gasCurrency = await getGoldTokenAddress(web3)
+    }
+    Logger.debug('contract-utils@sendTransactionAsync', `Gas currency: ${gasCurrency}`)
 
     let recievedTxHash: string | null = null
     let alreadyInformedResolversAboutConfirmation = false
@@ -315,55 +321,97 @@ export async function sendTransactionAsync<T>(
       }
     }
 
-    const nonce: number = await web3.eth.getTransactionCount(account)
+    // Use pending transaction count, so that, multiple transactions can be sent without
+    // waiting for the earlier ones to be confirmed.
+    const nonce: number = await web3.eth.getTransactionCount(account, 'pending')
     Logger.debug('contract-utils@sendTransactionAsync', `sendTransactionAsync@nonce is ${nonce}`)
     Logger.debug(
       'contract-utils@sendTransactionAsync',
       `sendTransactionAsync@sending from ${account}`
     )
 
-    tx.send({
+    const celoTx = {
       from: account,
       nonce,
       // @ts-ignore
-      gasCurrency: gasCurrencyContract._address,
+      gasCurrency,
       gas: estimatedGas,
       // Hack to prevent web3 from adding the suggested gold gas price, allowing geth to add
       // the suggested price in the selected gasCurrency.
       gasPrice,
       gasFeeRecipient,
-    })
-      .on('receipt', (r: TransactionReceipt) => {
-        logger(ReceiptReceived(r))
-        if (resolvers.receipt) {
-          resolvers.receipt(r)
-        }
-      })
-      .on('transactionHash', (txHash: string) => {
-        recievedTxHash = txHash
-        logger(TransactionHashReceived(txHash))
+    }
+    try {
+      await tx.send(celoTx)
+      // TODO: disable this only in infura mode.
+      // .on('receipt', (r: TransactionReceipt) => {
+      //   logger(ReceiptReceived(r))
+      //   if (resolvers.receipt) {
+      //     resolvers.receipt(r)
+      //   }
+      // })
+      // .on('transactionHash', (txHash: string) => {
+      //   recievedTxHash = txHash
+      //   logger(TransactionHashReceived(txHash))
 
-        if (resolvers.transactionHash) {
-          resolvers.transactionHash(txHash)
-        }
-      })
-      .on('confirmation', (confirmationNumber: number) => {
-        if (confirmationNumber > 1) {
-          console.debug(`Confirmation number is ${confirmationNumber} > 1, ignored...`)
-          // "confirmation" event is called for 24 blocks.
-          // if check to avoid polluting the logs and trying to remove the standby notification more than once
-          return
-        }
-        informAboutConfirmation()
-      })
-      .on('error', (error: Error) => {
-        Logger.info(
-          'contract-utils@sendTransactionAsync',
-          `Txn failed: txn ${util.inspect(error)} `
-        )
-        logger(Failed(error))
-        rejectAll(error)
-      })
+      //   if (resolvers.transactionHash) {
+      //     resolvers.transactionHash(txHash)
+      //   }
+      // })
+      // .on('confirmation', (confirmationNumber: number) => {
+      //   if (confirmationNumber > 1) {
+      //     console.debug(`Confirmation number is ${confirmationNumber} > 1, ignored...`)
+      //     // "confirmation" event is called for 24 blocks.
+      //     // if check to avoid polluting the logs and trying to remove the standby notification more than once
+      //     return
+      //   }
+      //   informAboutConfirmation()
+      // })
+      // .on('error', (error: Error) => {
+      //   Logger.info(
+      //     'contract-utils@sendTransactionAsync',
+      //     `Txn failed: txn ${util.inspect(error)} `
+      //   )
+      //   logger(Failed(error))
+      //   rejectAll(error)
+      // })
+    } catch (e) {
+      Logger.debug('contract-utils@sendTransactionAsync',`Ignoring error: ${util.inspect(e)}`)
+      Logger.debug('contract-utils@sendTransactionAsync',`error message: ${e.message}`)
+      // Ideally, I want to only ignore error whose messsage contains
+      // "Failed to subscribe to new newBlockHeaders" but seems like another wrapped
+      // error (listed below) gets thrown and there is no way to catch that.
+      // "Failed to subscribe to new newBlockHeaders" is thrown when the wallet kit is connected
+      // to a remote node via https.
+      // { [Error: [object Object]]
+      //     line: 352771,
+      //     column: 24,
+      //     sourceURL: 'http://localhost:8081/index.delta?platform=android&dev=true&minify=false' }
+      //     contract-utils@sendTransactionAsync: error: { [Error: Failed to subscribe to new newBlockHeaders to confi
+      //     rm the transaction receipts.
+      //     {
+      //       "line": 352771,
+      //       "column": 24,
+      //       "sourceURL": "http://localhost:8081/index.delta?platform=android&dev=true&minify=false"
+      //     }]
+      //       line: 157373,
+      //       column: 24,
+      //       sourceURL: 'http://localhost:8081/index.delta?platform=android&dev=true&minify=false' }
+      if (e.message.indexOf('Failed to subscribe to new newBlockHeaders') >= 0) {
+        // Ignore this error
+        Logger.warn('contract-utils@sendTransactionAsync', `Expected error ignored: ${JSON.stringify(e)}`)
+      } else {
+        // TODO(ashishb): testing only
+        Logger.debug('contract-utils@sendTransactionAsync',`Unexpected error ignored: ${util.inspect(e)}`)
+      }
+      const signedTxn = await web3.eth.signTransaction(celoTx)
+      recievedTxHash = web3.utils.sha3(signedTxn.raw)
+      Logger.info('contract-utils@sendTransactionAsync', `Locally calculated recievedTxHash is ${recievedTxHash}`)
+      logger(TransactionHashReceived(recievedTxHash))
+      if (resolvers.transactionHash) {
+        resolvers.transactionHash(recievedTxHash)
+      }
+    }
 
     // This code is required for infura-like setup.
     // When mobile client directly connects to the remote full node then

@@ -23,6 +23,7 @@ import { StableToken as StableTokenType } from '@celo/walletkit/types/StableToke
 import BigNumber from 'bignumber.js'
 import { Task } from 'redux-saga'
 import { all, call, delay, fork, put, race, select, take, takeEvery } from 'redux-saga/effects'
+import sleep from 'sleep-promise'
 import { e164NumberSelector } from 'src/account/reducer'
 import { showError } from 'src/alert/actions'
 import CeloAnalytics from 'src/analytics/CeloAnalytics'
@@ -47,7 +48,6 @@ import Logger from 'src/utils/Logger'
 import { getWeb3 } from 'src/web3/contracts'
 import { getConnectedAccount, getConnectedUnlockedAccount } from 'src/web3/saga'
 import { privateCommentKeySelector } from 'src/web3/selectors'
-import sleep from 'sleep-promise'
 
 const TAG = 'identity/verification'
 
@@ -427,7 +427,8 @@ function* revealAndCompleteAttestation(
   CeloAnalytics.track(CustomEventNames.verification_reveal_attestation, { issuer })
   const revealTx = yield call(makeRevealTx, attestationsContract, e164Number, issuer)
   // Crude way to prevent sendTransaction being called in parallel and use the same nonces.
-  const waitBeforeSendTransactionInMs: number = index * 1000
+  const waitBeforeSendTransactionInMs: number = index * 100
+  Logger.debug(TAG + '@revealAttestation', `Sleeping for ${waitBeforeSendTransactionInMs} before sending SMS txn request`)
   yield sleep(waitBeforeSendTransactionInMs)
   yield call(sendTransaction, revealTx, account, TAG, `Reveal ${issuer}`)
 

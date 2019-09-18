@@ -229,6 +229,12 @@ async function getGasPrice(
   return String(parseInt(gasPrice, 10) * 10)
 }
 
+// Maps account address to current nonce. This ensures that transactions
+// being sent too close to each other do not end up having the
+// same nonce. This does not have to be persisted across app restarts since
+// nonce calculation will be correct over the order of seconds (restart time).
+const currentNonce = new Map<string, number>()
+
 //
 /**
  * sendTransactionAsync mainly abstracts the sending of a transaction in a promise like
@@ -323,12 +329,18 @@ export async function sendTransactionAsync<T>(
 
     // Use pending transaction count, so that, multiple transactions can be sent without
     // waiting for the earlier ones to be confirmed.
-    const nonce: number = await web3.eth.getTransactionCount(account, 'pending')
+    let nonce: number = await web3.eth.getTransactionCount(account, 'pending')
+    if (!currentNonce.has(account)) {
+      Logger.debug('contract-utils@sendTransactionAsync', `Initializing current nonce for ${account} to ${nonce}`)
+      currentNonce.set(account, nonce)
+    } else if (nonce <= currentNonce.get(account)!) {
+      const newNonce = currentNonce.get(account)!
+      Logger.debug('contract-utils@sendTransactionAsync',
+      `nonce is ${nonce} which is less than existing known nonce (${currentNonce.get(account)}), setting it to ${newNonce}`)
+      nonce = newNonce
+    }
     Logger.debug('contract-utils@sendTransactionAsync', `sendTransactionAsync@nonce is ${nonce}`)
-    Logger.debug(
-      'contract-utils@sendTransactionAsync',
-      `sendTransactionAsync@sending from ${account}`
-    )
+    Logger.debug('contract-utils@sendTransactionAsync', `sendTransactionAsync@sending from ${account}`)
 
     const celoTx = {
       from: account,
@@ -401,7 +413,6 @@ export async function sendTransactionAsync<T>(
         // Ignore this error
         Logger.warn('contract-utils@sendTransactionAsync', `Expected error ignored: ${JSON.stringify(e)}`)
       } else {
-        // TODO(ashishb): testing only
         Logger.debug('contract-utils@sendTransactionAsync',`Unexpected error ignored: ${util.inspect(e)}`)
       }
       const signedTxn = await web3.eth.signTransaction(celoTx)
@@ -412,6 +423,8 @@ export async function sendTransactionAsync<T>(
         resolvers.transactionHash(recievedTxHash)
       }
     }
+    // Increment and store nonce for the next call to sendTransaction.
+    currentNonce.set(account, nonce + 1)
 
     // This code is required for infura-like setup.
     // When mobile client directly connects to the remote full node then

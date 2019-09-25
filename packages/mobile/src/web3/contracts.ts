@@ -87,6 +87,7 @@ export async function getWeb3() {
       // It is being enabled here for all the networks
       // https://github.com/celo-org/celo-monorepo/pull/1034/
       const url = `https://${DEFAULT_TESTNET}-infura.celo-testnet.org/`
+      await verifyUrlWorksOrThrow(url)
       Logger.debug('contracts@getWeb3', `Connecting to url ${url}`)
       const provider = getWebSocketProvider(url)
       web3 = new Web3(provider)
@@ -112,4 +113,13 @@ export function addLocalAccount(web3Instance: Web3, privateKey: string): Web3 {
     throw new Error('privateKey is undefined')
   }
   return web3utilsAddLocalAccount(web3Instance, privateKey)
+}
+
+async function verifyUrlWorksOrThrow(url: string) {
+  try {
+    await fetch(url)
+  } catch (e) {
+    Logger.error('contracts@verifyUrlWorksOrThrow', `Failed to perform HEAD request to url: \"${url}\"`, e)
+    throw new Error(`Failed to perform HEAD request to url: \"${url}\", is it working?`)
+  }
 }

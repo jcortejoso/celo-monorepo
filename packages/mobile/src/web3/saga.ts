@@ -159,7 +159,9 @@ export function* assignAccountFromPrivateKey(key: string) {
         if (e.toString().includes('account already exists')) {
           account = currentAccount
           Logger.debug(
-            TAG + '@assignAccountFromPrivateKey', 'Importing same account as current one')
+            TAG + '@assignAccountFromPrivateKey',
+            'Importing same account as current one'
+          )
         } else {
           Logger.error(TAG + '@assignAccountFromPrivateKey', 'Error importing raw key')
           throw e
@@ -277,7 +279,7 @@ export function* unlockAccount(account: string) {
       const privateKey: string = yield readPrivateKeyFromLocalDisk(account, pincode)
       addLocalAccount(web3, privateKey)
       return true
-    } else {  
+    } else {
       yield call(web3.eth.personal.unlockAccount, account, pincode, UNLOCK_DURATION)
       Logger.debug(TAG + '@unlockAccount', `Account unlocked: ${account}`)
       return true

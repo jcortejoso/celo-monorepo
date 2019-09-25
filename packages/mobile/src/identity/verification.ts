@@ -428,7 +428,10 @@ function* revealAndCompleteAttestation(
   const revealTx = yield call(makeRevealTx, attestationsContract, e164Number, issuer)
   // Crude way to prevent sendTransaction being called in parallel and use the same nonces.
   const waitBeforeSendTransactionInMs: number = index * 100
-  Logger.debug(TAG + '@revealAttestation', `Sleeping for ${waitBeforeSendTransactionInMs} before sending SMS txn request`)
+  Logger.debug(
+    TAG + '@revealAttestation',
+    `Sleeping for ${waitBeforeSendTransactionInMs} before sending SMS txn request`
+  )
   yield sleep(waitBeforeSendTransactionInMs)
   yield call(sendTransaction, revealTx, account, TAG, `Reveal ${issuer}`)
 

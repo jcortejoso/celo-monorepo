@@ -225,7 +225,7 @@ async function getGasPrice(
   }
   const gasPriceMinimum: GasPriceMinimumType = await getGasPriceMinimumContract(web3)
   const gasPrice: string = await gasPriceMinimum.methods.getGasPriceMinimum(gasCurrency).call()
-  Logger.debug('contract-utils@getGasPrice',`Gas price is ${gasPrice}`)
+  Logger.debug('contract-utils@getGasPrice', `Gas price is ${gasPrice}`)
   return String(parseInt(gasPrice, 10) * 10)
 }
 
@@ -331,16 +331,26 @@ export async function sendTransactionAsync<T>(
     // waiting for the earlier ones to be confirmed.
     let nonce: number = await web3.eth.getTransactionCount(account, 'pending')
     if (!currentNonce.has(account)) {
-      Logger.debug('contract-utils@sendTransactionAsync', `Initializing current nonce for ${account} to ${nonce}`)
+      Logger.debug(
+        'contract-utils@sendTransactionAsync',
+        `Initializing current nonce for ${account} to ${nonce}`
+      )
       currentNonce.set(account, nonce)
     } else if (nonce <= currentNonce.get(account)!) {
       const newNonce = currentNonce.get(account)!
-      Logger.debug('contract-utils@sendTransactionAsync',
-      `nonce is ${nonce} which is less than existing known nonce (${currentNonce.get(account)}), setting it to ${newNonce}`)
+      Logger.debug(
+        'contract-utils@sendTransactionAsync',
+        `nonce is ${nonce} which is less than existing known nonce (${currentNonce.get(
+          account
+        )}), setting it to ${newNonce}`
+      )
       nonce = newNonce
     }
     Logger.debug('contract-utils@sendTransactionAsync', `sendTransactionAsync@nonce is ${nonce}`)
-    Logger.debug('contract-utils@sendTransactionAsync', `sendTransactionAsync@sending from ${account}`)
+    Logger.debug(
+      'contract-utils@sendTransactionAsync',
+      `sendTransactionAsync@sending from ${account}`
+    )
 
     const celoTx = {
       from: account,
@@ -390,8 +400,8 @@ export async function sendTransactionAsync<T>(
       //   rejectAll(error)
       // })
     } catch (e) {
-      Logger.debug('contract-utils@sendTransactionAsync',`Ignoring error: ${util.inspect(e)}`)
-      Logger.debug('contract-utils@sendTransactionAsync',`error message: ${e.message}`)
+      Logger.debug('contract-utils@sendTransactionAsync', `Ignoring error: ${util.inspect(e)}`)
+      Logger.debug('contract-utils@sendTransactionAsync', `error message: ${e.message}`)
       // Ideally, I want to only ignore error whose messsage contains
       // "Failed to subscribe to new newBlockHeaders" but seems like another wrapped
       // error (listed below) gets thrown and there is no way to catch that.
@@ -413,13 +423,22 @@ export async function sendTransactionAsync<T>(
       //       sourceURL: 'http://localhost:8081/index.delta?platform=android&dev=true&minify=false' }
       if (e.message.indexOf('Failed to subscribe to new newBlockHeaders') >= 0) {
         // Ignore this error
-        Logger.warn('contract-utils@sendTransactionAsync', `Expected error ignored: ${JSON.stringify(e)}`)
+        Logger.warn(
+          'contract-utils@sendTransactionAsync',
+          `Expected error ignored: ${JSON.stringify(e)}`
+        )
       } else {
-        Logger.debug('contract-utils@sendTransactionAsync',`Unexpected error ignored: ${util.inspect(e)}`)
+        Logger.debug(
+          'contract-utils@sendTransactionAsync',
+          `Unexpected error ignored: ${util.inspect(e)}`
+        )
       }
       const signedTxn = await web3.eth.signTransaction(celoTx)
       recievedTxHash = web3.utils.sha3(signedTxn.raw)
-      Logger.info('contract-utils@sendTransactionAsync', `Locally calculated recievedTxHash is ${recievedTxHash}`)
+      Logger.info(
+        'contract-utils@sendTransactionAsync',
+        `Locally calculated recievedTxHash is ${recievedTxHash}`
+      )
       logger(TransactionHashReceived(recievedTxHash))
       if (resolvers.transactionHash) {
         resolvers.transactionHash(recievedTxHash)

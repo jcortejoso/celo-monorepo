@@ -80,7 +80,8 @@ export async function getWeb3() {
     Logger.info(`Initializing web3, platform: ${Platform.OS}, geth free mode: ${isGethFreeMode()}`)
     if (Platform.OS === 'ios') {
       web3 = new Web3(getWeb3HttpProviderForIos())
-    } else if (isGethFreeMode()) {  // Android + Geth free mode
+    } else if (isGethFreeMode()) {
+      // Android + Geth free mode
       // Warning: This hostname is not yet enabled for all the networks.
       // It is only enabled for "integration" and "alfajores" networks as of now.
       // It is being enabled here for all the networks
@@ -90,7 +91,8 @@ export async function getWeb3() {
       Logger.debug('contracts@getWeb3', `Connecting to url ${url}`)
       const provider = getWebSocketProvider(url)
       web3 = new Web3(provider)
-    } else {  // Android + local geth
+    } else {
+      // Android + local geth
       const provider = getIpcProvider(DEFAULT_TESTNET)
       web3 = new Web3(provider)
     }
@@ -118,7 +120,11 @@ async function verifyUrlWorksOrThrow(url: string) {
   try {
     await fetch(url)
   } catch (e) {
-    Logger.error('contracts@verifyUrlWorksOrThrow', `Failed to perform HEAD request to url: \"${url}\"`, e)
+    Logger.error(
+      'contracts@verifyUrlWorksOrThrow',
+      `Failed to perform HEAD request to url: \"${url}\"`,
+      e
+    )
     throw new Error(`Failed to perform HEAD request to url: \"${url}\", is it working?`)
   }
 }

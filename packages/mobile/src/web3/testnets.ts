@@ -1,3 +1,5 @@
+import { GethSyncMode } from 'src/geth/consts'
+
 // import Config from 'react-native-config'
 
 export enum Testnets {
@@ -9,4 +11,6 @@ export enum Testnets {
 }
 
 // TODO(ashishb): testing only
-export const DEFAULT_TESTNET: Testnets = Testnets.integration // Config.DEFAULT_TESTNET
+export const DEFAULT_TESTNET: Testnets = Testnets.integration  // Config.DEFAULT_TESTNET
+// TODO(ashishb): testing only
+export const DEFAULT_SYNC_MODE: GethSyncMode = GethSyncMode.ZeroSync  // GethSyncMode.Ultralight

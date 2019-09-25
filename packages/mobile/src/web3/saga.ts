@@ -11,7 +11,7 @@ import { CustomEventNames } from 'src/analytics/constants'
 import { ErrorMessages } from 'src/app/ErrorMessages'
 import { currentLanguageSelector } from 'src/app/reducers'
 import { getWordlist } from 'src/backup/utils'
-import { isGethFreeMode, UNLOCK_DURATION } from 'src/geth/consts'
+import { UNLOCK_DURATION } from 'src/geth/consts'
 import { deleteChainData } from 'src/geth/geth'
 import { navigateToError } from 'src/navigator/NavigationService'
 import { waitWeb3LastBlock } from 'src/networkInfo/saga'
@@ -25,7 +25,7 @@ import {
   setPrivateCommentKey,
   updateWeb3SyncProgress,
 } from 'src/web3/actions'
-import { addLocalAccount, getWeb3 } from 'src/web3/contracts'
+import { addLocalAccount, getWeb3, isZeroSyncMode } from 'src/web3/contracts'
 import { currentAccountSelector } from 'src/web3/selectors'
 import { Block } from 'web3/eth/types'
 
@@ -39,7 +39,7 @@ const BLOCK_CHAIN_CORRUPTION_ERROR = "Error: CONNECTION ERROR: Couldn't connect 
 
 // checks if web3 claims it is currently syncing and attempts to wait for it to complete
 export function* checkWeb3SyncProgress() {
-  if (isGethFreeMode()) {
+  if (isZeroSyncMode()) {
     // In this mode, the check seems to fail with
     // web3/saga/checking web3 sync progress: Error: Invalid JSON RPC response: "":
     return true
@@ -142,7 +142,7 @@ export function* assignAccountFromPrivateKey(key: string) {
 
     const web3 = yield getWeb3()
     let account: string
-    if (isGethFreeMode()) {
+    if (isZeroSyncMode()) {
       const privateKey = String(key)
       Logger.debug(TAG + '@assignAccountFromPrivateKey', 'Init web3 with private key')
       addLocalAccount(web3, privateKey)
@@ -274,7 +274,7 @@ export function* unlockAccount(account: string) {
 
     const pincode = yield call(getPincode)
     const web3 = yield getWeb3()
-    if (isGethFreeMode()) {
+    if (isZeroSyncMode()) {
       Logger.info(TAG + '@unlockAccount', `unlockDuration is ignored in Geth free mode`)
       const privateKey: string = yield readPrivateKeyFromLocalDisk(account, pincode)
       addLocalAccount(web3, privateKey)

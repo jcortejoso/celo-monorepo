@@ -2,7 +2,8 @@ import { addLocalAccount as web3utilsAddLocalAccount } from '@celo/walletkit'
 import { Platform } from 'react-native'
 import { DocumentDirectoryPath } from 'react-native-fs'
 import * as net from 'react-native-tcp'
-import { isGethFreeMode } from 'src/geth/consts'
+import { GethSyncMode } from 'src/geth/consts'
+import config from 'src/geth/network-config'
 import Logger from 'src/utils/Logger'
 import { DEFAULT_TESTNET, Testnets } from 'src/web3/testnets'
 import Web3 from 'web3'
@@ -75,12 +76,16 @@ const getWebSocketProvider = (url: string) => {
 
 let web3: Web3
 
+export function isZeroSyncMode(): boolean {
+  return config[DEFAULT_TESTNET].syncMode === GethSyncMode.ZeroSync
+}
+
 export async function getWeb3() {
   if (web3 === undefined) {
-    Logger.info(`Initializing web3, platform: ${Platform.OS}, geth free mode: ${isGethFreeMode()}`)
+    Logger.info(`Initializing web3, platform: ${Platform.OS}, geth free mode: ${isZeroSyncMode()}`)
     if (Platform.OS === 'ios') {
       web3 = new Web3(getWeb3HttpProviderForIos())
-    } else if (isGethFreeMode()) {
+    } else if (isZeroSyncMode()) {
       // Android + Geth free mode
       // Warning: This hostname is not yet enabled for all the networks.
       // It is only enabled for "integration" and "alfajores" networks as of now.

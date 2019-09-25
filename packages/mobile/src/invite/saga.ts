@@ -18,7 +18,7 @@ import { CustomEventNames } from 'src/analytics/constants'
 import { ErrorMessages } from 'src/app/ErrorMessages'
 import { transferEscrowedPayment } from 'src/escrow/actions'
 import { calculateFee } from 'src/fees/saga'
-import { CURRENCY_ENUM, isGethFreeMode } from 'src/geth/consts'
+import { CURRENCY_ENUM } from 'src/geth/consts'
 import i18n from 'src/i18n'
 import {
   Actions,
@@ -43,7 +43,7 @@ import { waitForTransactionWithId } from 'src/transactions/saga'
 import { sendTransaction } from 'src/transactions/send'
 import { dynamicLink } from 'src/utils/dynamicLink'
 import Logger from 'src/utils/Logger'
-import { addLocalAccount, getWeb3 } from 'src/web3/contracts'
+import { addLocalAccount, getWeb3, isZeroSyncMode } from 'src/web3/contracts'
 import { createNewAccount, getConnectedUnlockedAccount } from 'src/web3/saga'
 import { currentAccountSelector } from 'src/web3/selectors'
 import Web3 from 'web3'
@@ -200,7 +200,7 @@ export function* sendInviteSaga(action: SendInviteAction) {
 
 function* redeemSuccess(name: string, account: string) {
   Logger.showMessage(i18n.t('inviteFlow11:redeemSuccess'))
-  if (!isGethFreeMode()) {
+  if (!isZeroSyncMode()) {
     const web3 = yield getWeb3()
     web3.eth.defaultAccount = account
   }
@@ -239,7 +239,7 @@ export function* doRedeemInvite(action: RedeemInviteAction) {
     // Add temp wallet so we can send money from it
     let tempAccount
     try {
-      if (isGethFreeMode()) {
+      if (isZeroSyncMode()) {
         tempAccount = web3.eth.accounts.privateKeyToAccount(inviteCode).address
         Logger.debug(TAG + '@redeemInviteCode', 'Geth free mode', tempAccount)
         Logger.debug(
@@ -315,7 +315,7 @@ export function* doRedeemInvite(action: RedeemInviteAction) {
       TAG + '@redeemInviteCode',
       `Trying to transfer from ${tempAccount} to new account ${newAccount}`
     )
-    if (!isGethFreeMode()) {
+    if (!isZeroSyncMode()) {
       // Unlock temporary account
       yield call(web3.eth.personal.unlockAccount, tempAccount, TEMP_PW, 600)
     }

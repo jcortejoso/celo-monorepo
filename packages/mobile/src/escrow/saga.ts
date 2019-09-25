@@ -19,7 +19,7 @@ import {
 } from 'src/escrow/actions'
 import { sentEscrowedPaymentsSelector } from 'src/escrow/reducer'
 import { calculateFee } from 'src/fees/saga'
-import { CURRENCY_ENUM, isGethFreeMode, SHORT_CURRENCIES } from 'src/geth/consts'
+import { CURRENCY_ENUM, SHORT_CURRENCIES } from 'src/geth/consts'
 import i18n from 'src/i18n'
 import { Actions as IdentityActions, EndVerificationAction } from 'src/identity/actions'
 import { NUM_ATTESTATIONS_REQUIRED } from 'src/identity/verification'
@@ -36,7 +36,7 @@ import { TransactionStatus, TransactionTypes } from 'src/transactions/reducer'
 import { sendAndMonitorTransaction } from 'src/transactions/saga'
 import { sendTransaction } from 'src/transactions/send'
 import Logger from 'src/utils/Logger'
-import { getWeb3 } from 'src/web3/contracts'
+import { getWeb3, isZeroSyncMode } from 'src/web3/contracts'
 import { getConnectedAccount, getConnectedUnlockedAccount } from 'src/web3/saga'
 
 const TAG = 'escrow/saga'
@@ -127,7 +127,7 @@ function* withdrawFromEscrow(action: EndVerificationAction) {
       return
     }
 
-    if (isGethFreeMode()) {
+    if (isZeroSyncMode()) {
       Logger.info(
         TAG + '@withdrawFromEscrow',
         'Geth free mode is on, no need to unlock the temporary account'

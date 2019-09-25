@@ -2,7 +2,6 @@ import { AppState, NativeEventEmitter, NativeModules } from 'react-native'
 import { eventChannel } from 'redux-saga'
 import { call, cancelled, delay, fork, put, race, select, take } from 'redux-saga/effects'
 import { Actions, setGethConnected, setInitState } from 'src/geth/actions'
-import { isGethFreeMode } from 'src/geth/consts'
 import {
   FailedToFetchGenesisBlockError,
   FailedToFetchStaticNodesError,
@@ -12,6 +11,7 @@ import { InitializationState, isGethConnectedSelector } from 'src/geth/reducer'
 import { navigateToError } from 'src/navigator/NavigationService'
 import { restartApp } from 'src/utils/AppRestart'
 import Logger from 'src/utils/Logger'
+import { isZeroSyncMode } from 'src/web3/contracts'
 
 const gethEmitter = new NativeEventEmitter(NativeModules.RNGeth)
 
@@ -42,7 +42,7 @@ export function* waitForGethConnectivity() {
 }
 
 function* waitForGethInstance() {
-  if (isGethFreeMode()) {
+  if (isZeroSyncMode()) {
     return GethInitOutcomes.SUCCESS
   }
   try {
@@ -133,7 +133,7 @@ function createNewBlockChannel() {
 function* monitorGeth() {
   const newBlockChannel = yield createNewBlockChannel()
 
-  if (isGethFreeMode()) {
+  if (isZeroSyncMode()) {
     yield put(setGethConnected(true))
     yield delay(GETH_MONITOR_DELAY)
     return

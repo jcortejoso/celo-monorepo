@@ -253,8 +253,9 @@ export function* getAccount() {
 
 async function isLocked(address: string) {
   try {
+    const web3 = await getWeb3()
     // Test account to see if it is unlocked
-    await getWeb3().eth.sign('', address)
+    await web3.eth.sign('', address)
   } catch (e) {
     return true
   }
@@ -270,13 +271,14 @@ export function* unlockAccount(account: string) {
     }
 
     const pincode = yield call(getPincode)
+    const web3 = yield getWeb3()
     if (isGethFreeMode()) {
       Logger.info(TAG + '@unlockAccount', `unlockDuration is ignored in Geth free mode`)
       const privateKey: string = yield readPrivateKeyFromLocalDisk(account, pincode)
-      addLocalAccount(getWeb3(), privateKey)
+      addLocalAccount(web3, privateKey)
       return true
     } else {  
-      yield call(getWeb3().eth.personal.unlockAccount, account, pincode, UNLOCK_DURATION)
+      yield call(web3.eth.personal.unlockAccount, account, pincode, UNLOCK_DURATION)
       Logger.debug(TAG + '@unlockAccount', `Account unlocked: ${account}`)
       return true
     }

@@ -81,7 +81,6 @@ export async function getWeb3() {
     if (Platform.OS === 'ios') {
       web3 = new Web3(getWeb3HttpProviderForIos())
     } else if (isGethFreeMode()) {  // Android + Geth free mode
-    if (isGethFreeMode()) {
       // Warning: This hostname is not yet enabled for all the networks.
       // It is only enabled for "integration" and "alfajores" networks as of now.
       // It is being enabled here for all the networks

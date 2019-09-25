@@ -128,7 +128,7 @@ function* withdrawFromEscrow(action: EndVerificationAction) {
     }
 
     if (isGethFreeMode()) {
-      Logger.info('Geth free mode is on, no need to unlock the temporary account')
+      Logger.info(TAG + '@withdrawFromEscrow', 'Geth free mode is on, no need to unlock the temporary account')
     } else {
       // Unlock temporary account
       yield call(web3.eth.personal.unlockAccount, tempWalletAddress, TEMP_PW, 600)

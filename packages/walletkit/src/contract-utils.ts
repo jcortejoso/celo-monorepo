@@ -353,6 +353,8 @@ export async function sendTransactionAsync<T>(
       gasPrice,
       gasFeeRecipient,
     }
+    // Increment and store nonce for the next call to sendTransaction.
+    currentNonce.set(account, nonce + 1)
     try {
       await tx.send(celoTx)
       // TODO: disable this only in infura mode.
@@ -423,9 +425,6 @@ export async function sendTransactionAsync<T>(
         resolvers.transactionHash(recievedTxHash)
       }
     }
-    // Increment and store nonce for the next call to sendTransaction.
-    currentNonce.set(account, nonce + 1)
-
     // This code is required for infura-like setup.
     // When mobile client directly connects to the remote full node then
     // it gets `receipt` but not other notifications.

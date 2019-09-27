@@ -249,7 +249,7 @@ export function* doRedeemInvite(action: RedeemInviteAction) {
         )
         Logger.debug(TAG + '@redeemInviteCode', 'Added temp account to wallet', tempAccount)
         const tempAccountBalance: string = yield web3.eth.getBalance(tempAccount)
-        Logger.debug(TAG + `Balance of temp account is ${tempAccountBalance}`)
+        Logger.debug(TAG + '@redeemInviteCode', `Balance of temp account is ${tempAccountBalance}`)
         if (new BigNumber(tempAccountBalance).comparedTo(0) === 0) {
           throw new Error(`Temp Account has zero balance: ${tempAccount}`)
         }

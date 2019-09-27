@@ -36,7 +36,7 @@ import { TransactionStatus, TransactionTypes } from 'src/transactions/reducer'
 import { sendAndMonitorTransaction } from 'src/transactions/saga'
 import { sendTransaction } from 'src/transactions/send'
 import Logger from 'src/utils/Logger'
-import { getWeb3, isZeroSyncMode } from 'src/web3/contracts'
+import { getWeb3, isZeroSyncMode, addLocalAccount } from 'src/web3/contracts'
 import { getConnectedAccount, getConnectedUnlockedAccount } from 'src/web3/saga'
 
 const TAG = 'escrow/saga'
@@ -110,13 +110,17 @@ function* withdrawFromEscrow(action: EndVerificationAction) {
     const escrow: Escrow = yield call(getEscrowContract, web3)
     const account: string = yield call(getConnectedUnlockedAccount)
     const inviteCode: string = yield select((state: RootState) => state.invite.redeemedInviteCode)
+    const tmpWalletPrivateKey = inviteCode
 
-    if (!isValidPrivateKey(inviteCode)) {
+    if (!isValidPrivateKey(tmpWalletPrivateKey)) {
       Logger.warn(TAG + '@withdrawFromEscrow', 'Invalid private key, skipping escrow withdrawal')
       return
     }
 
-    const tempWalletAddress = web3.eth.accounts.privateKeyToAccount(inviteCode).address
+    const tempWalletAddress = web3.eth.accounts.privateKeyToAccount(tmpWalletPrivateKey).address
+    if (isZeroSyncMode()) {
+      addLocalAccount(web3, tmpWalletPrivateKey)
+    }
     Logger.debug(TAG + '@withdrawFromEscrow', 'Added temp account to wallet: ' + tempWalletAddress)
 
     // Check if there is a payment associated with this invite code
@@ -139,8 +143,10 @@ function* withdrawFromEscrow(action: EndVerificationAction) {
 
     const msgHash = web3.utils.soliditySha3({ type: 'address', value: account })
 
+    Logger.debug(TAG + '@withdrawFromEscrow', `Signing message hash ${msgHash}`)
     // using the temporary wallet account to sign a message. The message is the current account.
-    let signature = yield web3.eth.sign(msgHash, tempWalletAddress)
+    let signature = yield web3.eth.accounts.sign(msgHash, tmpWalletPrivateKey)
+    Logger.debug(TAG + '@withdrawFromEscrow', `Signed message hash signature is ${signature}`)
     signature = signature.slice(2)
     const r = `0x${signature.slice(0, 64)}`
     const s = `0x${signature.slice(64, 128)}`

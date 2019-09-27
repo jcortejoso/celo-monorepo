@@ -86,17 +86,17 @@ function getWebSocketProvider (url: string): Provider {
 
 function getWeb3(): Web3 {
   Logger.info(`Initializing web3, platform: ${Platform.OS}, geth free mode: ${isZeroSyncMode()}`)
-  // TODO(jean): Enable infura setup for iOS after testing.
-  if (Platform.OS === 'ios') {  // iOS
-    return new Web3(getWeb3HttpProviderForIos())
-  } else if (isZeroSyncMode()) { // Android + Geth free mode
+
+  if (isZeroSyncMode() && (Platform.OS === 'ios')) {
+        throw new Error('Zero sync mode is currently not supported on iOS')
+  } else if (isZeroSyncMode()) { // Geth free mode
     const url = getInfuraUrl()
     Logger.debug('contracts@getWeb3', `Connecting to url ${url}`)
-    const provider = getWebSocketProvider(url)
-    return new Web3(provider)
-  } else {  // Android + local geth
-    const provider = getIpcProvider(DEFAULT_TESTNET)
-    return new Web3(provider)
+    return new Web3(getWebSocketProvider(url))
+  } else if (Platform.OS === 'ios') {  // iOS + local geth
+    return new Web3(getWeb3HttpProviderForIos())
+  } else {
+    return new Web3(getIpcProvider(DEFAULT_TESTNET))
   }
 }
 

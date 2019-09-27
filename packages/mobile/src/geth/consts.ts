@@ -1,7 +1,6 @@
 export const WEI_PER_CELO = 1000000000000000000.0
 export const UNLOCK_DURATION = 600
 
-
 export enum GethSyncMode {
   // Sync mode to imply no local geth node but an infura-like setup.
   // This mode is internal to Celo wallet app and won't be propagated to

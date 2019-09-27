@@ -1,7 +1,7 @@
 import CeloAnalytics from 'src/analytics/CeloAnalytics'
 import { DefaultEventNames } from 'src/analytics/constants'
 import Logger from 'src/utils/Logger'
-import { getWeb3 } from 'src/web3/contracts'
+import { web3 } from 'src/web3/contracts'
 
 const TAG = 'web3/actions'
 
@@ -78,12 +78,10 @@ export const checkSyncProgress = () => ({ type: Actions.REQUEST_SYNC_PROGRESS })
 
 export async function getLatestBlock() {
   Logger.debug(TAG, 'Getting latest block')
-  const web3 = await getWeb3()
   return web3.eth.getBlock('latest')
 }
 
 export async function getBlock(blockNumber: number) {
   Logger.debug(TAG, 'Getting block ' + blockNumber)
-  const web3 = await getWeb3()
   return web3.eth.getBlock(blockNumber)
 }

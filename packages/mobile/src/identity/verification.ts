@@ -45,7 +45,7 @@ import { startAutoSmsRetrieval } from 'src/identity/smsRetrieval'
 import { RootState } from 'src/redux/reducers'
 import { sendTransaction, sendTransactionPromises } from 'src/transactions/send'
 import Logger from 'src/utils/Logger'
-import { getWeb3 } from 'src/web3/contracts'
+import { web3 } from 'src/web3/contracts'
 import { getConnectedAccount, getConnectedUnlockedAccount } from 'src/web3/saga'
 import { privateCommentKeySelector } from 'src/web3/selectors'
 
@@ -118,7 +118,6 @@ export function* doVerificationFlow() {
     const privDataKey = yield select(privateCommentKeySelector)
     const dataKey = compressedPubKey(Buffer.from(privDataKey, 'hex'))
 
-    const web3 = yield getWeb3()
     const [e164Number, e164NumberHash]: string[] = yield call(getE164NumberHash)
     const attestationsContract: AttestationsType = yield call(getAttestationsContract, web3)
     const stableTokenContract: StableTokenType = yield call(getStableTokenContract, web3)
@@ -500,7 +499,6 @@ export function* revokeVerification() {
 
     yield put(resetVerification())
 
-    const web3 = yield getWeb3()
     const attestationsContract: AttestationsType = yield getAttestationsContract(web3)
     const currentAccounts:
       | string[]
@@ -536,7 +534,6 @@ export async function lookupAddressFromPhoneNumber(e164Number: string) {
 
   try {
     const phoneHash = getPhoneHash(e164Number)
-    const web3 = await getWeb3()
     const attestationsContract = await getAttestationsContract(web3)
     const results = await lookupPhoneNumbers(attestationsContract, [phoneHash])
     if (!results || !results[phoneHash]) {

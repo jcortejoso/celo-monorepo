@@ -43,7 +43,7 @@ import { waitForTransactionWithId } from 'src/transactions/saga'
 import { sendTransaction } from 'src/transactions/send'
 import { dynamicLink } from 'src/utils/dynamicLink'
 import Logger from 'src/utils/Logger'
-import { addLocalAccount, getWeb3, isZeroSyncMode } from 'src/web3/contracts'
+import { addLocalAccount, isZeroSyncMode, web3 } from 'src/web3/contracts'
 import { createNewAccount, getConnectedUnlockedAccount } from 'src/web3/saga'
 import { currentAccountSelector } from 'src/web3/selectors'
 import Web3 from 'web3'
@@ -59,7 +59,6 @@ export async function getInviteTxGas(
   amount: string,
   comment: string
 ) {
-  const web3 = await getWeb3()
   const escrowContract = await getEscrowContract(web3)
   return getSendTxGas(account, contractGetter, {
     amount,
@@ -126,7 +125,6 @@ export function* sendInvite(
 ) {
   yield call(getConnectedUnlockedAccount)
   try {
-    const web3 = yield getWeb3()
     const temporaryWalletAccount = web3.eth.accounts.create()
     const temporaryAddress = temporaryWalletAccount.address
     const inviteCode = createInviteCode(temporaryWalletAccount.privateKey)
@@ -201,7 +199,6 @@ export function* sendInviteSaga(action: SendInviteAction) {
 function* redeemSuccess(name: string, account: string) {
   Logger.showMessage(i18n.t('inviteFlow11:redeemSuccess'))
   if (!isZeroSyncMode()) {
-    const web3 = yield getWeb3()
     web3.eth.defaultAccount = account
   }
   // TODO(Rossy) Decouple setting of name from redeem complete, they are on diff screens now
@@ -234,7 +231,6 @@ export function* doRedeemInvite(action: RedeemInviteAction) {
   const { inviteCode, name } = action
 
   yield call(waitWeb3LastBlock)
-  const web3 = yield getWeb3()
   try {
     // Add temp wallet so we can send money from it
     let tempAccount

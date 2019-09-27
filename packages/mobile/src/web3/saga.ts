@@ -25,7 +25,7 @@ import {
   setPrivateCommentKey,
   updateWeb3SyncProgress,
 } from 'src/web3/actions'
-import { addLocalAccount, getWeb3, isZeroSyncMode } from 'src/web3/contracts'
+import { addLocalAccount, isZeroSyncMode, web3 } from 'src/web3/contracts'
 import { currentAccountSelector } from 'src/web3/selectors'
 import { Block } from 'web3/eth/types'
 
@@ -48,7 +48,6 @@ export function* checkWeb3SyncProgress() {
     try {
       Logger.debug(TAG, 'checkWeb3SyncProgress', 'Checking sync progress')
 
-      const web3 = yield getWeb3()
       // isSyncing returns a syncProgress object when it's still syncing, false otherwise
       const syncProgress = yield web3.eth.isSyncing()
 
@@ -140,7 +139,6 @@ export function* assignAccountFromPrivateKey(key: string) {
       throw Error('Cannot create account without having the pin set')
     }
 
-    const web3 = yield getWeb3()
     let account: string
     if (isZeroSyncMode()) {
       const privateKey = String(key)
@@ -255,7 +253,6 @@ export function* getAccount() {
 
 async function isLocked(address: string) {
   try {
-    const web3 = await getWeb3()
     // Test account to see if it is unlocked
     await web3.eth.sign('', address)
   } catch (e) {
@@ -273,7 +270,6 @@ export function* unlockAccount(account: string) {
     }
 
     const pincode = yield call(getPincode)
-    const web3 = yield getWeb3()
     if (isZeroSyncMode()) {
       Logger.info(TAG + '@unlockAccount', `unlockDuration is ignored in Geth free mode`)
       const privateKey: string = yield readPrivateKeyFromLocalDisk(account, pincode)

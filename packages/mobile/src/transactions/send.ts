@@ -9,7 +9,7 @@ import {
 import CeloAnalytics from 'src/analytics/CeloAnalytics'
 import { CustomEventNames } from 'src/analytics/constants'
 import Logger from 'src/utils/Logger'
-import { getWeb3, isZeroSyncMode } from 'src/web3/contracts'
+import { getInfuraUrl, isZeroSyncMode, web3 } from 'src/web3/contracts'
 import { TransactionObject } from 'web3/eth/types'
 
 // As per https://www.typescriptlang.org/docs/handbook/advanced-types.html#exhaustiveness-checking
@@ -62,10 +62,15 @@ export const sendTransactionPromises = async (
   txId: string,
   staticGas?: number | undefined
 ) => {
-  const web3 = await getWeb3()
   const stableToken = await getStableTokenContract(web3)
   // This if-else case is temprary and will disappear once we move from `walletkit` to `contractkit`.
   if (isZeroSyncMode()) {
+    // In dev mode, verify that we are actually able to connect to the network. This
+    // ensures that we get a more meaningful error if the infura server is down, which
+    // can happen with networks without SLA guarantees like `integration`.
+    if (__DEV__) {
+      await verifyUrlWorksOrThrow(getInfuraUrl())
+    }
     return sendTransactionAsyncWithLocalSigning(web3, tx, account, stableToken, getLogger(tag, txId), staticGas)
   } else {
     return sendTransactionAsync(tx, account, stableToken, getLogger(tag, txId), staticGas)
@@ -82,4 +87,17 @@ export const sendTransaction = async (
   staticGas?: number | undefined
 ) => {
   return sendTransactionPromises(tx, account, tag, txId, staticGas).then(awaitConfirmation)
+}
+
+async function verifyUrlWorksOrThrow(url: string) {
+  try {
+    await fetch(url)
+  } catch (e) {
+    Logger.error(
+      'contracts@verifyUrlWorksOrThrow',
+      `Failed to perform HEAD request to url: \"${url}\"`,
+      e
+    )
+    throw new Error(`Failed to perform HEAD request to url: \"${url}\", is it working?`)
+  }
 }

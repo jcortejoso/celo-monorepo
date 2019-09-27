@@ -12,6 +12,17 @@ import { Provider } from 'web3/providers'
 // Logging tag
 const tag = 'web3/contracts'
 
+export const web3: Web3 = getWeb3()
+
+export function isZeroSyncMode(): boolean {
+  return config[DEFAULT_TESTNET].syncMode === GethSyncMode.ZeroSync
+}
+
+export function getInfuraUrl(): string {
+  return `https://${DEFAULT_TESTNET}-infura.celo-testnet.org/`
+}
+
+
 function getIpcProvider(testnet: Testnets) {
   Logger.debug(tag, 'creating IPCProvider...')
 
@@ -62,11 +73,10 @@ function getWeb3HttpProviderForIos(): Provider {
   return httpProvider
 }
 
-const getWebSocketProvider = (url: string) => {
+function getWebSocketProvider (url: string): Provider {
   Logger.debug(tag, 'creating HttpProvider...')
   const provider = new Web3.providers.HttpProvider(url)
   Logger.debug(tag, 'created HttpProvider')
-
   // In the future, we might decide to over-ride the error handler via the following code.
   // provider.on('error', () => {
   //   Logger.showError('Error occurred')
@@ -74,38 +84,26 @@ const getWebSocketProvider = (url: string) => {
   return provider
 }
 
-let web3: Web3
-
-export function isZeroSyncMode(): boolean {
-  return config[DEFAULT_TESTNET].syncMode === GethSyncMode.ZeroSync
-}
-
-export async function getWeb3() {
-  if (web3 === undefined) {
-    Logger.info(`Initializing web3, platform: ${Platform.OS}, geth free mode: ${isZeroSyncMode()}`)
-    if (Platform.OS === 'ios') {
-      web3 = new Web3(getWeb3HttpProviderForIos())
-    } else if (isZeroSyncMode()) {
-      // Android + Geth free mode
-      // Warning: This hostname is not yet enabled for all the networks.
-      // It is only enabled for "integration" and "alfajores" networks as of now.
-      // It is being enabled here for all the networks
-      // https://github.com/celo-org/celo-monorepo/pull/1034/
-      const url = `https://${DEFAULT_TESTNET}-infura.celo-testnet.org/`
-      await verifyUrlWorksOrThrow(url)
-      Logger.debug('contracts@getWeb3', `Connecting to url ${url}`)
-      const provider = getWebSocketProvider(url)
-      web3 = new Web3(provider)
-    } else {
-      // Android + local geth
-      const provider = getIpcProvider(DEFAULT_TESTNET)
-      web3 = new Web3(provider)
-    }
+function getWeb3(): Web3 {
+  Logger.info(`Initializing web3, platform: ${Platform.OS}, geth free mode: ${isZeroSyncMode()}`)
+  // TODO(jean): Enable infura setup for iOS after testing.
+  if (Platform.OS === 'ios') {  // iOS
+    return new Web3(getWeb3HttpProviderForIos())
+  } else if (isZeroSyncMode()) { // Android + Geth free mode
+    const url = getInfuraUrl()
+    Logger.debug('contracts@getWeb3', `Connecting to url ${url}`)
+    const provider = getWebSocketProvider(url)
+    return new Web3(provider)
+  } else {  // Android + local geth
+    const provider = getIpcProvider(DEFAULT_TESTNET)
+    return new Web3(provider)
   }
-  return web3
 }
 
 export function addLocalAccount(web3Instance: Web3, privateKey: string): Web3 {
+  if (!isZeroSyncMode()) {
+    throw new Error('addLocalAccount can only be called in Zero sync mode')
+  }
   if (web3Instance === null) {
     throw new Error('web3 instance is null')
   }
@@ -119,17 +117,4 @@ export function addLocalAccount(web3Instance: Web3, privateKey: string): Web3 {
     throw new Error('privateKey is undefined')
   }
   return web3utilsAddLocalAccount(web3Instance, privateKey)
-}
-
-async function verifyUrlWorksOrThrow(url: string) {
-  try {
-    await fetch(url)
-  } catch (e) {
-    Logger.error(
-      'contracts@verifyUrlWorksOrThrow',
-      `Failed to perform HEAD request to url: \"${url}\"`,
-      e
-    )
-    throw new Error(`Failed to perform HEAD request to url: \"${url}\", is it working?`)
-  }
 }

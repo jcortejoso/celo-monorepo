@@ -22,5 +22,5 @@ export async function sendTransaction(tx: TransactionObject<any>) {
     stableToken = await StableToken(web3)
   }
 
-  return sendTransactionAsync(web3, tx, account, stableToken, emptyTxLogger).then(awaitConfirmation)
+  return sendTransactionAsync(tx, account, stableToken, emptyTxLogger).then(awaitConfirmation)
 }

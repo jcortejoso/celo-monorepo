@@ -235,7 +235,6 @@ async function getGasPrice(
 // nonce calculation will be correct over the order of seconds (restart time).
 const currentNonce = new Map<string, number>()
 
-//
 /**
  * sendTransactionAsync mainly abstracts the sending of a transaction in a promise like
  * interface. Use the higher-order sendTransactionFactory as a consumer to configure
@@ -249,6 +248,119 @@ const currentNonce = new Map<string, number>()
  *               a transaction ID
  */
 export async function sendTransactionAsync<T>(
+  tx: TransactionObject<T>,
+  account: string,
+  gasCurrencyContract: StableToken | GoldToken,
+  logger: TxLogger = emptyTxLogger,
+  estimatedGas?: number | undefined
+): Promise<TxPromises> {
+  // @ts-ignore
+  const resolvers: TxPromiseResolvers = {}
+  // @ts-ignore
+  const rejectors: TxPromiseReject = {}
+
+  const receipt: Promise<TransactionReceipt> = new Promise((resolve, reject) => {
+    resolvers.receipt = resolve
+    rejectors.receipt = reject
+  })
+
+  const transactionHash: Promise<string> = new Promise((resolve, reject) => {
+    resolvers.transactionHash = resolve
+    rejectors.transactionHash = reject
+  })
+
+  const confirmation: Promise<boolean> = new Promise((resolve, reject) => {
+    resolvers.confirmation = resolve
+    rejectors.confirmation = reject
+  })
+
+  const rejectAll = (error: Error) => {
+    values(rejectors).map((reject) => {
+      // @ts-ignore
+      reject(error)
+    })
+  }
+
+  try {
+    logger(Started)
+    const txParams: any = {
+      from: account,
+      gasCurrency: gasCurrencyContract._address,
+      gasPrice: '0',
+    }
+
+    if (estimatedGas === undefined) {
+      estimatedGas = Math.round((await tx.estimateGas(txParams)) * gasInflateFactor)
+      logger(EstimatedGas(estimatedGas))
+    }
+
+    tx.send({
+      from: account,
+      // @ts-ignore
+      gasCurrency: gasCurrencyContract._address,
+      gas: estimatedGas,
+      // Hack to prevent web3 from adding the suggested gold gas price, allowing geth to add
+      // the suggested price in the selected gasCurrency.
+      gasPrice: '0',
+    })
+      .on('receipt', (r: TransactionReceipt) => {
+        logger(ReceiptReceived(r))
+        if (resolvers.receipt) {
+          resolvers.receipt(r)
+        }
+      })
+      .on('transactionHash', (txHash: string) => {
+        logger(TransactionHashReceived(txHash))
+
+        if (resolvers.transactionHash) {
+          resolvers.transactionHash(txHash)
+        }
+      })
+      .on('confirmation', (confirmationNumber: number) => {
+        if (confirmationNumber > 1) {
+          // "confirmation" event is called for 24 blocks.
+          // if check to avoid polluting the logs and trying to remove the standby notification more than once
+          return
+        }
+        logger(Confirmed)
+
+        if (resolvers.confirmation) {
+          resolvers.confirmation(true)
+        }
+      })
+      .on('error', (error: Error) => {
+        logger(Failed(error))
+        rejectAll(error)
+      })
+  } catch (error) {
+    logger(Exception(error))
+    rejectAll(error)
+  }
+
+  return {
+    receipt,
+    transactionHash,
+    confirmation,
+  }
+}
+
+/**
+ * sendTransactionAsyncWithLocalSigning is same as sendTransactionAsync except it fills
+ * in the missing fields and locally signs the transaction. It will fail if the `from`
+ * is not one of the account whose local signing keys are available. This method
+ * should only be used in Zero sync (infura-like) mode where Geth is running
+ * remotely.
+ * 
+ * This separate function is temporary and contractkit uses a unified function
+ * for both web3 (local) and remote (geth) siging.
+ *
+ * @param tx The transaction object itself
+ * @param account The address from which the transaction should be sent
+ * @param gasCurrencyContract The contract instance of the Token in which to pay gas for
+ * @param logger An object whose log level functions can be passed a function to pass
+ *               a transaction ID
+ */
+export async function sendTransactionAsyncWithLocalSigning<T>(
   web3: Web3,
   tx: TransactionObject<T>,
   account: string,
@@ -367,38 +479,6 @@ export async function sendTransactionAsync<T>(
     currentNonce.set(account, nonce + 1)
     try {
       await tx.send(celoTx)
-      // TODO: disable this only in infura mode.
-      // .on('receipt', (r: TransactionReceipt) => {
-      //   logger(ReceiptReceived(r))
-      //   if (resolvers.receipt) {
-      //     resolvers.receipt(r)
-      //   }
-      // })
-      // .on('transactionHash', (txHash: string) => {
-      //   recievedTxHash = txHash
-      //   logger(TransactionHashReceived(txHash))
-
-      //   if (resolvers.transactionHash) {
-      //     resolvers.transactionHash(txHash)
-      //   }
-      // })
-      // .on('confirmation', (confirmationNumber: number) => {
-      //   if (confirmationNumber > 1) {
-      //     console.debug(`Confirmation number is ${confirmationNumber} > 1, ignored...`)
-      //     // "confirmation" event is called for 24 blocks.
-      //     // if check to avoid polluting the logs and trying to remove the standby notification more than once
-      //     return
-      //   }
-      //   informAboutConfirmation()
-      // })
-      // .on('error', (error: Error) => {
-      //   Logger.info(
-      //     'contract-utils@sendTransactionAsync',
-      //     `Txn failed: txn ${util.inspect(error)} `
-      //   )
-      //   logger(Failed(error))
-      //   rejectAll(error)
-      // })
     } catch (e) {
       Logger.debug('contract-utils@sendTransactionAsync', `Ignoring error: ${util.inspect(e)}`)
       Logger.debug('contract-utils@sendTransactionAsync', `error message: ${e.message}`)

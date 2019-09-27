@@ -36,7 +36,7 @@ import { TransactionStatus, TransactionTypes } from 'src/transactions/reducer'
 import { sendAndMonitorTransaction } from 'src/transactions/saga'
 import { sendTransaction } from 'src/transactions/send'
 import Logger from 'src/utils/Logger'
-import { getWeb3, isZeroSyncMode, addLocalAccount } from 'src/web3/contracts'
+import { addLocalAccount, getWeb3, isZeroSyncMode } from 'src/web3/contracts'
 import { getConnectedAccount, getConnectedUnlockedAccount } from 'src/web3/saga'
 
 const TAG = 'escrow/saga'

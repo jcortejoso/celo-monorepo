@@ -64,6 +64,7 @@ export {
   SendTransaction,
   sendTransaction,
   sendTransactionAsync,
+  sendTransactionAsyncWithLocalSigning,
   SendTransactionLogEvent,
   SendTransactionLogEventType,
   TxLogger,

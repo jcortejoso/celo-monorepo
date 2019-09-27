@@ -2,13 +2,14 @@ import {
   awaitConfirmation,
   getStableTokenContract,
   sendTransactionAsync,
+  sendTransactionAsyncWithLocalSigning,
   SendTransactionLogEvent,
   SendTransactionLogEventType,
 } from '@celo/walletkit'
 import CeloAnalytics from 'src/analytics/CeloAnalytics'
 import { CustomEventNames } from 'src/analytics/constants'
 import Logger from 'src/utils/Logger'
-import { getWeb3 } from 'src/web3/contracts'
+import { getWeb3, isZeroSyncMode } from 'src/web3/contracts'
 import { TransactionObject } from 'web3/eth/types'
 
 // As per https://www.typescriptlang.org/docs/handbook/advanced-types.html#exhaustiveness-checking
@@ -63,7 +64,12 @@ export const sendTransactionPromises = async (
 ) => {
   const web3 = await getWeb3()
   const stableToken = await getStableTokenContract(web3)
-  return sendTransactionAsync(web3, tx, account, stableToken, getLogger(tag, txId), staticGas)
+  // This if-else case is temprary and will disappear once we move from `walletkit` to `contractkit`.
+  if (isZeroSyncMode()) {
+    return sendTransactionAsyncWithLocalSigning(web3, tx, account, stableToken, getLogger(tag, txId), staticGas)
+  } else {
+    return sendTransactionAsync(tx, account, stableToken, getLogger(tag, txId), staticGas)
+  }
 }
 
 // Send a transaction and await for its confirmation

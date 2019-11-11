@@ -1,5 +1,5 @@
 import { envVar, fetchEnv } from './env-utils'
-import { execCmdWithExitOnFailure } from './utils'
+import { execCmd, execCmdWithExitOnFailure } from './utils'
 
 const NUMBER_OF_TX_NODES = 4
 
@@ -9,9 +9,16 @@ export async function scaleResource(
   resourceName: string,
   replicaCount: number
 ) {
-  await execCmdWithExitOnFailure(
-    `kubectl scale ${type} ${resourceName} --replicas=${replicaCount} --namespace ${celoEnv}`
-  )
+  const exists = await checkResourceExists(celoEnv, type, resourceName)
+  if (exists) {
+    await execCmdWithExitOnFailure(
+      `kubectl scale ${type} ${resourceName} --replicas=${replicaCount} --namespace ${celoEnv}`
+    )
+  } else {
+    console.debug(
+      `Cannot scale resource ${resourceName} of type ${type} on ${celoEnv} because it does not exist`
+    )
+  }
 }
 
 export async function getStatefulSetReplicas(celoEnv: string, resourceName: string) {
@@ -55,4 +62,13 @@ async function getRandomOgTxNodeIP(celoEnv: string) {
   }
 
   return txNodeData.status.loadBalancer.ingress[0].ip
+}
+
+async function checkResourceExists(celoEnv: string, type: string, resourceName: string) {
+  try {
+    await execCmd(`kubectl get ${type} ${resourceName} --namespace ${celoEnv}`)
+    return true
+  } catch (error) {
+    return false
+  }
 }

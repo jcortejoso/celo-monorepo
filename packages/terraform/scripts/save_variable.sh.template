@@ -1,0 +1,6 @@
+function save_variable {
+  local var=$1
+  local file=$2
+
+  [ -n "$var" ] && echo -n "$var" > "$file"
+}

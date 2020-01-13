@@ -1,0 +1,23 @@
+# ---- Install Docker ----
+
+echo "Installing Docker..."
+apt update -y && apt upgrade -y
+apt install -y apt-transport-https ca-certificates curl software-properties-common gnupg2
+curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
+add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable"
+apt update -y && apt upgrade -y
+apt install -y docker-ce
+systemctl start docker
+
+echo "Configuring Docker..."
+cat <<'EOF' > '/etc/docker/daemon.json'
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  }
+}
+EOF
+systemctl restart docker
+

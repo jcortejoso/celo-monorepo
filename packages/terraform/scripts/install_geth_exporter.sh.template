@@ -1,0 +1,33 @@
+# ---- Set Up and Run Geth Exporter ----
+
+GETH_EXPORTER_DOCKER_IMAGE=${geth_exporter_docker_image_repository}:${geth_exporter_docker_image_tag}
+
+echo "Pulling geth exporter..."
+docker pull $GETH_EXPORTER_DOCKER_IMAGE
+
+cat <<EOF >/etc/systemd/system/geth-exporter.service
+[Unit]
+Description=Docker Container %N
+Requires=docker.service
+After=docker.service
+
+[Service]
+Restart=always
+ExecStart=/usr/bin/docker run \\
+  --name geth-exporter \\
+  --restart=always \\
+  -v $DATA_DIR:$DATA_DIR \\
+  --net=host \\
+  $GETH_EXPORTER_DOCKER_IMAGE \\
+  /usr/local/bin/geth_exporter \\
+    -ipc $DATA_DIR/geth.ipc \\
+    -filter "(.*overall|percentiles_95)"
+ExecStop=/usr/bin/docker rm -f %N
+
+[Install]
+WantedBy=default.target
+EOF
+
+systemctl daemon-reload
+systemctl enable geth-exporter.service
+systemctl restart geth-exporter.service

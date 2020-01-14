@@ -118,6 +118,7 @@ ExecStart=/usr/bin/docker run \\
       --consoleoutput=stdout \\
       --verbosity=${geth_verbosity} \\
       --ethstats=${proxy_name}@${ethstats_host} \\
+      --etherbase=${validator_account_address} \\
       --istanbul.blockperiod=${block_time} \\
       --istanbul.requesttimeout=${istanbul_request_timeout_ms} \\
       --maxpeers=${max_peers} \\

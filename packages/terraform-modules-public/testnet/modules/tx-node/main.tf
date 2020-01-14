@@ -65,6 +65,9 @@ resource "google_compute_instance" "tx_node" {
       network_id : var.network_id,
       bootnodes_base64 : var.bootnodes_base64,
       rid : count.index,
+      attestation_signer_account_address : var.attestation_signer_account_addresses[count.index],
+      attestation_signer_private_key : var.attestation_signer_private_keys[count.index],
+      attestation_signer_account_password : var.attestation_signer_account_passwords[count.index],
     }
   )
 }

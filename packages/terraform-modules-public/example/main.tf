@@ -4,14 +4,6 @@ provider "google" {
   zone    = var.google["zone"]
 }
 
-# For managing terraform state remotely
-terraform {
-  backend "gcs" {
-    bucket = "my_bucket"
-    prefix = "my_tfs/celo"
-  }
-}
-
 resource "google_project_service" "compute" {
   project                    = var.google["project"]
   service                    = "compute.googleapis.com"
@@ -106,6 +98,7 @@ module "celo_cluster" {
   attestation_service_docker_image_tag             = var.attestation_service_docker_image["tag"]
   attestation_signer_addresses                     = var.attestation_signer_accounts["account_addresses"]
   attestation_signer_private_keys                  = var.attestation_signer_accounts["private_keys"]
+  attestation_signer_passwords                     = var.attestation_signer_accounts["account_passwords"]
   attestation_service_sms_providers                = var.attestation_service_credentials["sms_providers"]
   attestation_service_nexmo_key                    = var.attestation_service_credentials["nexmo_key"]
   attestation_service_nexmo_secret                 = var.attestation_service_credentials["nexmo_secret"]

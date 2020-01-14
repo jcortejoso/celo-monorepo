@@ -168,6 +168,11 @@ variable attestation_signer_private_keys {
   default     = [""]
 }
 
+variable attestation_signer_passwords {
+  type        = list(string)
+  description = "The account passwords for signing the attestations. Must be the address of the associated validator"
+  default     = [""]
+}
 
 variable attestation_service_celo_provider {
   type        = string

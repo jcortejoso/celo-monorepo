@@ -102,17 +102,17 @@ resource "google_compute_firewall" "geth_metrics_firewall" {
   }
 }
 
-resource "google_compute_firewall" "rpc_firewall" {
-  name    = "${var.celo_env}-rpc-firewall"
-  network = var.network_name
+// resource "google_compute_firewall" "rpc_firewall" {
+//   name    = "${var.celo_env}-rpc-firewall"
+//   network = var.network_name
 
-  target_tags = local.firewall_target_tags_txnode
+//   target_tags = local.firewall_target_tags_txnode
 
-  allow {
-    protocol = "tcp"
-    ports    = ["8545", "8546"]
-  }
-}
+//   allow {
+//     protocol = "tcp"
+//     ports    = ["8545", "8546"]
+//   }
+// }
 
 resource "google_compute_firewall" "proxy" {
   name    = "${var.celo_env}-proxy-firewall"
@@ -158,6 +158,9 @@ module "tx_node" {
   network_name                          = var.network_name
   tx_node_count                         = var.tx_node_count
   bootnodes_base64                      = base64encode(data.http.bootnodes.body)
+  attestation_signer_account_addresses  = var.attestation_signer_addresses
+  attestation_signer_private_keys       = var.attestation_signer_private_keys
+  attestation_signer_account_passwords  = var.attestation_signer_passwords
 }
 
 module "proxy" {

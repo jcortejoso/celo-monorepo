@@ -79,3 +79,18 @@ variable txnode_max_peers {
   description = "Max number of peers to connect with"
   default     = 120
 }
+
+variable attestation_signer_account_addresses {
+  type        = list(string)
+  description = "Array with the attestation signer account addresses"
+}
+
+variable attestation_signer_private_keys {
+  type        = list(string)
+  description = "Array with the attestation signer account private keys"
+}
+
+variable attestation_signer_account_passwords {
+  type        = list(string)
+  description = "Array with the attestation signer account passwords"
+}

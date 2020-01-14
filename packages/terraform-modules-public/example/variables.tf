@@ -115,6 +115,9 @@ variable attestation_signer_accounts {
     private_keys = [
       "1b...",
     ]
+    account_passwords = [
+      "secret1",
+    ]
   }
 }
 

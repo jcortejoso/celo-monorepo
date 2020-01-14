@@ -40,7 +40,8 @@ echo -n '${genesis_content_base64}' | base64 -d > $DATA_DIR/genesis.json
 echo -n '${bootnodes_base64}' | base64 -d > $DATA_DIR/bootnodes
 echo -n '${rid}' > $DATA_DIR/replica_id
 echo -n '${ip_address}' > $DATA_DIR/ipAddress
-
+echo -n '${attestation_signer_account_password}' > $DATA_DIR/account/accountSecret
+echo -n '${attestation_signer_private_key}' > $DATA_DIR/pkey
 
 echo "Starting geth..."
 # We need to override the entrypoint in the geth image (which is originally `geth`)
@@ -50,7 +51,7 @@ docker run \
   -v $DATA_DIR:$DATA_DIR \
   --entrypoint /bin/sh \
   -i $GETH_NODE_DOCKER_IMAGE \
-  -c "geth init $DATA_DIR/genesis.json"
+  -c "geth init $DATA_DIR/genesis.json && geth account import --password $DATA_DIR/account/accountSecret $DATA_DIR/pkey | true"
 
 cat <<EOF >/etc/systemd/system/geth.service
 [Unit]
@@ -68,6 +69,8 @@ ExecStart=/usr/bin/docker run \\
   --entrypoint /bin/sh \\
   $GETH_NODE_DOCKER_IMAGE -c "\\
     geth \\
+      --password=$DATA_DIR/account/accountSecret \\
+      --unlock=${attestation_signer_account_address} \\
       --bootnodes $(cat $DATA_DIR/bootnodes) \\
       --lightserv 90 \\
       --lightpeers 1000 \\

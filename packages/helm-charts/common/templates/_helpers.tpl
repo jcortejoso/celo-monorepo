@@ -240,14 +240,21 @@ data:
     - |
       [[ $REPLICA_NAME =~ -([0-9]+)$ ]] || exit 1
       RID=${BASH_REMATCH[1]}
+      {{ if .proxy }}
+      # To allow proxies to scale up easily without conflicting with keys of
+      # proxies associated with other validators
+      KEY_INDEX=$(( ({{ .validator_index }} * 10000) + $RID ))
+      {{ else }}
+      KEY_INDEX=$RID
+      {{ end }}
       echo "Generating private key for rid=$RID"
       celotooljs.sh generate bip32 --mnemonic "$MNEMONIC" --accountType {{ .mnemonic_account_type }} --index $RID > /root/.celo/pkey
       echo 'Generating address'
       celotooljs.sh generate account-address --private-key $(cat /root/.celo/pkey) > /root/.celo/address
       {{ if .proxy }}
       # Generating the account address of the validator
-      echo "Generating the account address of the validator $RID"
-      celotooljs.sh generate bip32 --mnemonic "$MNEMONIC" --accountType validator --index $RID > /root/.celo/validator_pkey
+      echo "Generating the account address of the validator {{ .validator_index }}" 
+      celotooljs.sh generate bip32 --mnemonic "$MNEMONIC" --accountType validator --index {{ .validator_index }} > /root/.celo/validator_pkey
       celotooljs.sh generate account-address --private-key `cat /root/.celo/validator_pkey` > /root/.celo/validator_address
       rm -f /root/.celo/validator_pkey
       {{ end }}
@@ -288,7 +295,7 @@ data:
         apiVersion: v1
         fieldPath: status.podIP
   - name: BOOTNODE_IP_ADDRESS
-    value: {{ default "none" .Values.geth.bootnodeIpAddress  }}
+    value: {{ default "none" .Values.geth.bootnodeIpAddress }}
   - name: REPLICA_NAME
     valueFrom:
       fieldRef:
@@ -360,4 +367,44 @@ spec:
 - name: {{ .name }}
   value: "{{ (index .dict .value_name) }}"
 {{- end }}
+{{- end -}}
+
+{{- /* This template puts a semicolon-separated pair of proxy enodes into $PROXY_ENODE_URL_PAIR. */ -}}
+{{- /* I.e <internal enode>;<external enode>. */ -}}
+{{- /* Expects env variables MNEMONIC, RID (the validator index), and PROXY_INDEX */ -}}
+{{- define "celo.proxyenodeurlpair" -}}
+echo "Generating proxy enode url pair for proxy $PROXY_INDEX"
+PROXY_INTERNAL_IP_ENV_VAR={{ $.Release.Namespace | upper }}_VALIDATORS_${RID}_PROXY_INTERNAL_${PROXY_INDEX}_SERVICE_HOST
+echo "PROXY_INTERNAL_IP_ENV_VAR=$PROXY_INTERNAL_IP_ENV_VAR"
+PROXY_INTERNAL_IP=`eval "echo \\${${PROXY_INTERNAL_IP_ENV_VAR}}"`
+
+# If $PROXY_IPS is not empty, then we use the IPs from there. Otherwise,
+# we use the IP address of the proxy internal service
+if [ ! -z $PROXY_IPS ]; then
+  echo "Proxy external IP from PROXY_IPS=$PROXY_IPS: "
+  PROXY_EXTERNAL_IP=`echo -n $PROXY_IPS | cut -d '/' -f $((PROXY_INDEX + 1))`
+else
+  PROXY_EXTERNAL_IP=$PROXY_INTERNAL_IP
+fi
+
+echo "Proxy internal IP: $PROXY_INTERNAL_IP"
+echo "Proxy external IP: $PROXY_EXTERNAL_IP"
+
+# Proxy key index to allow for a high number of proxies per validator without overlap
+PROXY_KEY_INDEX=$(( ($RID * 10000) + $PROXY_INDEX ))
+PROXY_ENODE_ADDRESS=`celotooljs.sh generate public-key --mnemonic "$MNEMONIC" --accountType proxy --index $PROXY_KEY_INDEX`
+PROXY_INTERNAL_ENODE=enode://${PROXY_ENODE_ADDRESS}@${PROXY_INTERNAL_IP}:30503
+PROXY_EXTERNAL_ENODE=enode://${PROXY_ENODE_ADDRESS}@${PROXY_EXTERNAL_IP}:30303
+
+echo "Proxy internal enode: $PROXY_INTERNAL_ENODE"
+echo "Proxy external enode: $PROXY_EXTERNAL_ENODE"
+
+PROXY_ENODE_URL_PAIR=$PROXY_INTERNAL_ENODE\;$PROXY_EXTERNAL_ENODE
+{{- end -}}
+
+
+{{- define "celo.proxyipaddresses" -}}
+{{- if .Values.geth.static_ips -}}
+{{- index .Values.geth.proxyIPAddressesPerValidatorArray .validatorIndex -}}
+{{- end -}}
 {{- end -}}
